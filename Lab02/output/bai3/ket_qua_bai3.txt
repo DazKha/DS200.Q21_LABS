@@ -1,0 +1,38 @@
+=== Tong hop ket qua bai3 ===
+User: minhkha - MSSV: 23520664
+Host: Khas-Mac.local
+Run at: 2026-04-13 21:42:02 +0700
+Mode: local
+
+----- all_negative_aspect_counts/part-r-00000 -----
+Tong so dong: 7
+Hien thi 40 dong dau:
+HOTEL	341
+ROOMS	515
+SERVICE	266
+LOCATION	95
+FACILITIES	211
+FOOD&DRINKS	277
+ROOM_AMENITIES	403
+
+----- all_positive_aspect_counts/part-r-00000 -----
+Tong so dong: 7
+Hien thi 40 dong dau:
+HOTEL	2942
+ROOMS	1904
+SERVICE	1906
+LOCATION	843
+FACILITIES	213
+FOOD&DRINKS	366
+ROOM_AMENITIES	834
+
+----- top_negative_aspect/part-r-00000 -----
+Tong so dong: 1
+Hien thi 40 dong dau:
+ROOMS	515
+
+----- top_positive_aspect/part-r-00000 -----
+Tong so dong: 1
+Hien thi 40 dong dau:
+HOTEL	2942
+

@@ -1,0 +1,102 @@
+=== Tong hop ket qua bai1 ===
+User: minhkha - MSSV: 23520664
+Host: Khas-Mac.local
+Run at: 2026-04-13 21:41:51 +0700
+Mode: local
+
+----- clean_words/part-r-00000 -----
+Tong so dong: 178986
+Hien thi 40 dong dau:
+3728	GENERAL	SERVICE	neutral	0
+546	COMFORT	FACILITIES	positive	0
+546	GENERAL	SERVICE	negative	0
+546	GENERAL	LOCATION	positive	0
+2667	COMFORT	HOTEL	positive	1
+2619	COMFORT	HOTEL	positive	1
+6931	CLEANLINESS	HOTEL	positive	1
+2796	GENERAL	HOTEL	positive	1
+5628	GENERAL	FACILITIES	negative	1
+6431	QUALITY	HOTEL	neutral	1
+4418	COMFORT	HOTEL	positive	1
+4361	COMFORT	HOTEL	negative	1
+2745	GENERAL	HOTEL	positive	1
+4431	GENERAL	ROOM_AMENITIES	positive	1
+2792	GENERAL	HOTEL	positive	1
+4280	QUALITY	ROOMS	neutral	1
+5850	GENERAL	SERVICE	negative	1
+2855	GENERAL	HOTEL	positive	1
+4403	GENERAL	SERVICE	positive	1
+3373	GENERAL	LOCATION	negative	1
+6931	DESIGN&FEATURES	ROOMS	positive	1
+2593	GENERAL	FACILITIES	positive	1
+944	COMFORT	ROOMS	negative	1
+6387	GENERAL	LOCATION	positive	1
+4703	QUALITY	HOTEL	positive	1
+5479	CLEANLINESS	ROOMS	negative	1
+4268	GENERAL	SERVICE	positive	1
+2620	PRICES	HOTEL	positive	1
+4292	PRICES	HOTEL	positive	1
+6932	GENERAL	HOTEL	positive	1
+2549	QUALITY	FACILITIES	negative	1
+2683	COMFORT	HOTEL	positive	1
+2749	GENERAL	HOTEL	neutral	1
+2788	COMFORT	ROOMS	negative	1
+4418	GENERAL	HOTEL	positive	1
+1782	GENERAL	HOTEL	positive	1
+2562	GENERAL	HOTEL	positive	1
+1110	MISCELLANEOUS	HOTEL	positive	1
+2788	COMFORT	ROOMS	negative	1
+4361	MISCELLANEOUS	HOTEL	positive	1
+... (con 178946 dong khong hien thi)
+
+=== Tong hop ket qua bai1 ===
+User: minhkha - MSSV: 23520664
+Host: Khas-Mac.local
+Run at: 2026-04-13 21:41:51 +0700
+Mode: local
+
+----- normalized_comments/part-m-00000 -----
+Tong so dong: 11770
+Hien thi 40 dong dau:
+1	vừa qua tôi có dùng dịch vụ tại khách sạn ttc hotel premium ngọc lan ngọc lan đà lạt 	GENERAL	HOTEL	positive
+1	vừa qua tôi có dùng dịch vụ tại khách sạn ttc hotel premium ngọc lan ngọc lan đà lạt 	GENERAL	SERVICE	positive
+2	tuy nhiên buffet sáng ở đây không được ngon và chưa đa dạng lắm 	QUALITY	FOOD&DRINKS	negative
+2	tuy nhiên buffet sáng ở đây không được ngon và chưa đa dạng lắm 	STYLE&OPTIONS	FOOD&DRINKS	negative
+3	nhìn chung dịch vụ khách sạn cũng tốt  chỉ có đồ ăn sáng chưa ngon  chưa hợp khẩu vị với tôi 	QUALITY	FOOD&DRINKS	negative
+3	nhìn chung dịch vụ khách sạn cũng tốt  chỉ có đồ ăn sáng chưa ngon  chưa hợp khẩu vị với tôi 	GENERAL	SERVICE	positive
+4	đội ngũ nhân viên phục vụ chu đáo  tận tình 	GENERAL	SERVICE	positive
+5	trang thiết bị nội thất hài hoà  tiện nghi hiện đại  phù hợp với tiêu chuẩn khách sạn 	DESIGN&FEATURES	ROOM_AMENITIES	positive
+5	trang thiết bị nội thất hài hoà  tiện nghi hiện đại  phù hợp với tiêu chuẩn khách sạn 	QUALITY	ROOM_AMENITIES	positive
+5	trang thiết bị nội thất hài hoà  tiện nghi hiện đại  phù hợp với tiêu chuẩn khách sạn 	QUALITY	HOTEL	positive
+6	ngay chợ đà lạt 	GENERAL	LOCATION	positive
+7	bởi vì ở khách sạn này có khung cảnh đẹp cùng với dịch vụ phòng ở đạt chất lượng  đáp ứng yêu cầu mong đợi của tôi 	GENERAL	HOTEL	positive
+7	bởi vì ở khách sạn này có khung cảnh đẹp cùng với dịch vụ phòng ở đạt chất lượng  đáp ứng yêu cầu mong đợi của tôi 	GENERAL	SERVICE	positive
+8	khách sạn có vị trí dễ dàng tìm kiếm  gần chợ đà lạt chỉ cần băng qua đường xuống cây cầu băng tắt qua mất 5 phút 	GENERAL	LOCATION	positive
+9	nhân viên phục vụ chuyên nghiệp nữa 	GENERAL	SERVICE	positive
+10	cảm thấy dịch vụ rất ổn và không có điều gì để phàn nàn cả 	GENERAL	SERVICE	positive
+11	nội thất còn mới và sạch sẽ  đồ ăn sáng đa dạng và ngon 	CLEANLINESS	HOTEL	positive
+11	nội thất còn mới và sạch sẽ  đồ ăn sáng đa dạng và ngon 	QUALITY	FOOD&DRINKS	positive
+11	nội thất còn mới và sạch sẽ  đồ ăn sáng đa dạng và ngon 	STYLE&OPTIONS	FOOD&DRINKS	positive
+11	nội thất còn mới và sạch sẽ  đồ ăn sáng đa dạng và ngon 	QUALITY	ROOM_AMENITIES	positive
+12	vị trí khách sạn rất đẹp  ngay ở trung tâm đà lạt  đi lại các điểm tham quan thuận tiện 	GENERAL	LOCATION	positive
+12	vị trí khách sạn rất đẹp  ngay ở trung tâm đà lạt  đi lại các điểm tham quan thuận tiện 	COMFORT	HOTEL	positive
+13	buffet sáng nhiều món  nhưng hợp với khách tây hơn là khẩu vị người việt 	QUALITY	FOOD&DRINKS	negative
+13	buffet sáng nhiều món  nhưng hợp với khách tây hơn là khẩu vị người việt 	STYLE&OPTIONS	FOOD&DRINKS	positive
+14	diện tích phòng ốc khá rộng và sạch  thích hợp với nhu cầu nghỉ ngơi của tôi 	DESIGN&FEATURES	ROOMS	positive
+14	diện tích phòng ốc khá rộng và sạch  thích hợp với nhu cầu nghỉ ngơi của tôi 	CLEANLINESS	ROOMS	positive
+15	thiết kế trần thấp và diện tích hơi bé nên phòng không hợp ý tôi một chút 	DESIGN&FEATURES	ROOMS	negative
+15	thiết kế trần thấp và diện tích hơi bé nên phòng không hợp ý tôi một chút 	COMFORT	ROOMS	negative
+16	vị thế khách sạn tốt  thích hợp với nhu cầu đi lại tham quan 	GENERAL	LOCATION	positive
+17	phòng sạch sẽ  thoáng nhìn tổng quan tại khách sạn này cũng thấy được 	GENERAL	HOTEL	positive
+17	phòng sạch sẽ  thoáng nhìn tổng quan tại khách sạn này cũng thấy được 	CLEANLINESS	ROOMS	positive
+17	phòng sạch sẽ  thoáng nhìn tổng quan tại khách sạn này cũng thấy được 	COMFORT	ROOMS	positive
+18	khách sạn ngay trung tâm  gần với những địa ăn uống và các địa danh du lịch 	GENERAL	LOCATION	positive
+19	thái độ phục vụ ân cần  nhiệt tình 	GENERAL	SERVICE	positive
+20	nói chung  khách sạn rất tốt nên tôi thường lựa chọn khách sạn này để làm điểm nghỉ ngơi 	GENERAL	HOTEL	positive
+21	chất lượng dịch vụ tại khách sạn tôi hoàn toàn hài lòng  chất lượng dịch vụ xứng đáng với giá tiền tôi đã bỏ ra 	PRICES	HOTEL	positive
+21	chất lượng dịch vụ tại khách sạn tôi hoàn toàn hài lòng  chất lượng dịch vụ xứng đáng với giá tiền tôi đã bỏ ra 	QUALITY	HOTEL	positive
+21	chất lượng dịch vụ tại khách sạn tôi hoàn toàn hài lòng  chất lượng dịch vụ xứng đáng với giá tiền tôi đã bỏ ra 	GENERAL	SERVICE	positive
+22	nhân viên thân thiện và nhiệt tình giúp hộ tôi mang hành lý vào trong  thủ tục nhận phòng rất nhanh 	GENERAL	SERVICE	positive
+23	phòng sạch sẽ và có của sổ khá thoáng mát  nhìn chung tôi rất hài lòng 	CLEANLINESS	ROOMS	positive
+... (con 11730 dong khong hien thi)
+

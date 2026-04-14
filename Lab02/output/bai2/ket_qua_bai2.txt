@@ -1,0 +1,86 @@
+=== Tong hop ket qua bai2 ===
+User: minhkha - MSSV: 23520664
+Host: Khas-Mac.local
+Run at: 2026-04-13 21:41:57 +0700
+Mode: local
+
+----- review_count_by_aspect/part-r-00000 -----
+Tong so dong: 7
+Hien thi 40 dong dau:
+HOTEL	3606
+ROOMS	2501
+SERVICE	2301
+ROOM_AMENITIES	1267
+LOCATION	957
+FOOD&DRINKS	696
+FACILITIES	442
+
+=== Tong hop ket qua bai2 ===
+User: minhkha - MSSV: 23520664
+Host: Khas-Mac.local
+Run at: 2026-04-13 21:41:57 +0700
+Mode: local
+
+----- review_count_by_category/part-r-00000 -----
+Tong so dong: 8
+Hien thi 40 dong dau:
+GENERAL	5583
+COMFORT	1373
+CLEANLINESS	1364
+QUALITY	1164
+DESIGN&FEATURES	939
+PRICES	745
+MISCELLANEOUS	335
+STYLE&OPTIONS	267
+
+=== Tong hop ket qua bai2 ===
+User: minhkha - MSSV: 23520664
+Host: Khas-Mac.local
+Run at: 2026-04-13 21:41:57 +0700
+Mode: local
+
+----- word_freq_gt_500/part-r-00000 -----
+Tong so dong: 80
+Hien thi 40 dong dau:
+phòng	6777
+khách	5202
+sạn	4061
+vụ	3816
+tiện	3284
+không	3268
+nhân	3221
+viên	3190
+sạch	3035
+ốc	2381
+giá	2325
+dịch	2287
+tốt	2271
+nghi	2265
+đủ	1973
+đầy	1856
+đây	1853
+trí	1764
+vị	1660
+cả	1635
+phục	1567
+sinh	1560
+vệ	1543
+nghỉ	1471
+lòng	1385
+chất	1369
+hài	1366
+resort	1346
+như	1332
+đà	1292
+lượng	1205
+hợp	1161
+ăn	1157
+lạt	1079
+tình	1051
+trang	1015
+đẹp	1005
+nhiệt	963
+ổn	883
+sáng	850
+... (con 40 dong khong hien thi)
+
