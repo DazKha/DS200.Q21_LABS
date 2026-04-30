@@ -1,4 +1,4 @@
-# DS200 Lab02 - Apache Pig
+# DS200 Lab02 - Apache Pig - Le Minh Kha - 23520664
 
 Repo nay gom cac script Apache Pig cho 5 bai trong `assignments.ipynb`.
 
@@ -104,12 +104,3 @@ Vi du:
 - `output/bai2/review_count_by_aspect.csv`
 
 Noi dung CSV duoc tao bang cach gop cac `part-*` trong tung thu muc ket qua.
-
-## Ket qua can nop
-
-Theo yeu cau bai thuc hanh, ban nop:
-
-- Source code Apache Pig (`pig/*.pig`)
-- Cac file ket qua (`output/...`)
-- Anh chup man hinh ket qua co thong tin user
-- Link Github trong file `.txt` theo huong dan mon hoc
