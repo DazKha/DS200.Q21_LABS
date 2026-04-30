@@ -1,0 +1,16 @@
+=== Bài 5: Trung bình rating & tổng lượt đánh giá theo Occupation ===
+OccupationID	OccupationName	AvgRating	TotalRatings
+1	Programmer	4.2500	10
+2	Doctor	3.6905	21
+3	Engineer	3.5556	18
+4	Teacher	3.7000	5
+5	Lawyer	3.6471	17
+6	Artist	3.7273	11
+7	Manager	3.4688	16
+8	Nurse	3.8636	11
+9	Salesperson	3.6471	17
+10	Accountant	3.5833	6
+11	Journalist	3.8529	17
+12	Designer	4.0000	13
+14	Consultant	3.8571	14
+15	Student	4.0000	8

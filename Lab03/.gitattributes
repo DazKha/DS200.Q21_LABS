@@ -1,0 +1,2 @@
+# Tránh shebang lỗi trên macOS/Linux (bash\r: No such file)
+*.sh text eol=lf
