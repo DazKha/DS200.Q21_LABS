@@ -1,0 +1,9 @@
+output/frames/
+output/batch/
+output/summary.json
+data/*.mp4
+data/*.avi
+models/*.onnx
+__pycache__/
+*.pyc
+.DS_Store
