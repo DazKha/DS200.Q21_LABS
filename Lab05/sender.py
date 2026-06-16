@@ -9,7 +9,7 @@ VIDEO_PATH = "data/pedestrian.mp4"
 RECEIVER_HOST = "127.0.0.1"
 RECEIVER_PORT = 6400
 FRAME_WIDTH = 640
-FRAME_HEIGHT = 480
+FRAME_HEIGHT = 640
 
 
 def connect_tcp(host, port):

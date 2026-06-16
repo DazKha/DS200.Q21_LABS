@@ -2,6 +2,13 @@
 set -e
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+LAB04_DIR="$(dirname "$ROOT_DIR")/Lab04"
+VENV_DIR="$LAB04_DIR/.venv"
+
+export JAVA_HOME="/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home"
+export PATH="$JAVA_HOME/bin:$PATH"
+
+source "$VENV_DIR/bin/activate"
 
 echo "===== People Counting System ====="
 echo "1. Storage Server (port 6401)"

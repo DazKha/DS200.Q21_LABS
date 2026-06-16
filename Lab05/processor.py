@@ -17,10 +17,10 @@ STREAM_PORT = 6400
 STORAGE_HOST = "127.0.0.1"
 STORAGE_PORT = 6401
 MODEL_PATH = "models/yolo11n.onnx"
-CONFIDENCE_THRESHOLD = 0.5
+CONFIDENCE_THRESHOLD = 0.55
 IOU_THRESHOLD = 0.45
 FRAME_WIDTH = 640
-FRAME_HEIGHT = 480
+FRAME_HEIGHT = 640
 
 
 def preprocess_image(image_array):
@@ -75,62 +75,67 @@ def send_to_storage(data):
         print(f"[processor] Failed to send to storage: {e}")
 
 
-def process_image(item):
+def process_partition(iterator):
     import onnxruntime as ort
-
-    if isinstance(item, str):
-        item = json.loads(item)
-
-    if "image" not in item or "timestamp" not in item:
-        return
-
-    image = np.array(item["image"], dtype=np.uint8).reshape(
-        FRAME_HEIGHT, FRAME_WIDTH, 3
-    )
-    timestamp = item["timestamp"]
+    import cv2
+    import numpy as np
 
     session = ort.InferenceSession(MODEL_PATH)
-    input_data = preprocess_image(image)
-    outputs = session.run(None, {"images": input_data})
-    predictions = np.squeeze(outputs[0]).T
+    input_size = max(FRAME_WIDTH, FRAME_HEIGHT)
 
-    scores = np.max(predictions[:, 4:], axis=1)
-    class_ids = np.argmax(predictions[:, 4:], axis=1)
-    person_mask = (class_ids == 0) & (scores >= CONFIDENCE_THRESHOLD)
+    for item in iterator:
+        if isinstance(item, str):
+            item = json.loads(item)
+        if "image" not in item or "timestamp" not in item:
+            continue
 
-    if not np.any(person_mask):
-        result = {"timestamp": timestamp, "person_count": 0, "bboxes": []}
+        image = np.array(item["image"], dtype=np.uint8).reshape(
+            FRAME_HEIGHT, FRAME_WIDTH, 3
+        )
+        timestamp = item["timestamp"]
+
+        image = cv2.resize(image, (input_size, input_size))
+        input_data = preprocess_image(image)
+        outputs = session.run(None, {"images": input_data})
+        predictions = np.squeeze(outputs[0]).T
+
+        raw_scores = predictions[:, 4:]
+        scores = 1.0 / (1.0 + np.exp(-raw_scores))
+        max_scores = np.max(scores, axis=1)
+        class_ids = np.argmax(scores, axis=1)
+        person_mask = (class_ids == 0) & (max_scores >= CONFIDENCE_THRESHOLD)
+
+        if not np.any(person_mask):
+            result = {"timestamp": timestamp, "person_count": 0, "bboxes": []}
+            send_to_storage(result)
+            print(f"[processor] timestamp={timestamp:.3f}, persons=0")
+            continue
+
+        filtered_boxes = predictions[person_mask, :4]
+        filtered_scores = max_scores[person_mask]
+
+        boxes_xyxy = np.array([xywh_to_xyxy(b) for b in filtered_boxes])
+
+        keep_indices = nms(boxes_xyxy, filtered_scores, IOU_THRESHOLD)
+
+        bboxes = []
+        for idx in keep_indices:
+            x1, y1, x2, y2 = boxes_xyxy[idx].astype(int)
+            bboxes.append({
+                "x": int(x1),
+                "y": int(y1),
+                "w": int(x2 - x1),
+                "h": int(y2 - y1),
+                "score": round(float(filtered_scores[idx]), 2),
+            })
+
+        result = {
+            "timestamp": timestamp,
+            "person_count": len(bboxes),
+            "bboxes": bboxes,
+        }
         send_to_storage(result)
-        print(f"[processor] timestamp={timestamp:.3f}, persons=0")
-        return
-
-    filtered_boxes = predictions[person_mask, :4]
-    filtered_scores = scores[person_mask]
-
-    boxes_xyxy = np.array([xywh_to_xyxy(b) for b in filtered_boxes])
-    boxes_xyxy[:, [0, 2]] *= FRAME_WIDTH
-    boxes_xyxy[:, [1, 3]] *= FRAME_HEIGHT
-
-    keep_indices = nms(boxes_xyxy, filtered_scores, IOU_THRESHOLD)
-
-    bboxes = []
-    for idx in keep_indices:
-        x1, y1, x2, y2 = boxes_xyxy[idx].astype(int)
-        bboxes.append({
-            "x": int(x1),
-            "y": int(y1),
-            "w": int(x2 - x1),
-            "h": int(y2 - y1),
-            "score": round(float(filtered_scores[idx]), 2),
-        })
-
-    result = {
-        "timestamp": timestamp,
-        "person_count": len(bboxes),
-        "bboxes": bboxes,
-    }
-    send_to_storage(result)
-    print(f"[processor] timestamp={timestamp:.3f}, persons={len(bboxes)}")
+        print(f"[processor] timestamp={timestamp:.3f}, persons={len(bboxes)}")
 
 
 def main():
@@ -152,7 +157,7 @@ def main():
         .filter(lambda line: line.strip() != "")
         .map(lambda line: json.loads(line))
         .filter(lambda item: "image" in item and "timestamp" in item)
-        .foreachRDD(lambda rdd: rdd.foreach(process_image))
+        .foreachRDD(lambda rdd: rdd.foreachPartition(process_partition))
     )
 
     print(f"[processor] Spark Streaming started on {STREAM_HOST}:{STREAM_PORT}")
