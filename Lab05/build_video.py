@@ -1,11 +1,24 @@
 import os
+import sys
 import glob
 import cv2
 
 ANNOTATED_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output", "annotated")
+DEFAULT_FPS = 24
+
+
+def get_video_fps(video_path):
+    cap = cv2.VideoCapture(video_path)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    cap.release()
+    return int(fps) if fps > 0 else DEFAULT_FPS
 
 
 def main():
+    fps = DEFAULT_FPS
+    if len(sys.argv) > 1 and os.path.isfile(sys.argv[1]):
+        fps = get_video_fps(sys.argv[1])
+
     pattern = os.path.join(ANNOTATED_DIR, "*.jpg")
     files = glob.glob(pattern)
     frames_data = []
@@ -32,8 +45,6 @@ def main():
 
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     output_path = os.path.join(ANNOTATED_DIR, "output_video.mp4")
-    duration = frames_data[-1][0] - frames_data[0][0]
-    fps = max(1, int(len(frames_data) / duration)) if duration > 0 else 24
     writer = cv2.VideoWriter(output_path, fourcc, fps, (w, h))
 
     for _, filepath in frames_data:
@@ -50,7 +61,8 @@ def main():
     if len(frames_data) > 10 and os.path.exists(latest):
         os.remove(latest)
 
-    print(f"[build_video] Annotated video saved: {output_path} ({len(frames_data)} frames)")
+    duration = len(frames_data) / fps
+    print(f"[build_video] Annotated video saved: {output_path} ({len(frames_data)} frames, {fps} fps, {duration:.1f}s)")
 
 
 if __name__ == "__main__":

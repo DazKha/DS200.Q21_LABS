@@ -75,7 +75,7 @@ kill $STORAGE_PID 2>/dev/null
 wait $STORAGE_PID 2>/dev/null
 
 echo "[*] Building annotated video..."
-python "$ROOT_DIR/build_video.py" 2>/dev/null
+python "$ROOT_DIR/build_video.py" "$VIDEO"
 
 echo ""
 echo "[*] Done. Results:"
