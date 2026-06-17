@@ -10,23 +10,41 @@ A real-time people counting system using **PySpark Streaming** with **YOLO11s** 
 ## Architecture
 
 ```
-┌──────────────┐   TCP :6400    ┌─────────────────────────┐   TCP :6401    ┌─────────────────────┐
-│   sender.py  │  ───────────>  │      processor.py       │  ───────────>  │     storage.py      │
-│   (OpenCV)   │   frame JSON   │  PySpark DStream + YOLO │   bboxes JSON  │  PySpark DataFrame  │
-└──────────────┘                └─────────────────────────┘                └─────────────────────┘
+┌──────────────┐   TCP :6400    ┌───────────────────────────────────┐   TCP :6401    ┌─────────────────────┐
+│   sender.py  │  ───────────>  │          processor.py             │  ───────────>  │     storage.py      │
+│   (OpenCV)   │   frame JSON   │  PySpark DStream      YOLO11s     │   bboxes JSON  │  PySpark DataFrame  │
+└──────────────┘                │  ┌──────────┐       ┌──────────┐ │                └─────────────────────┘
+                                │  │ DStream  │ ──>── │  Driver  │ │
+                                │  │ filter   │ .collect() │ YOLO  │ │
+                                │  │   map    │       │  + MPS  │ │
+                                │  └──────────┘       └──────────┘ │
+                                └───────────────────────────────────┘
 ```
 
 | Server | File | Technology | Role |
 |--------|------|------------|------|
 | Frame Forwarder | `sender.py` | OpenCV + TCP | Reads video, resizes to 640x640, sends frames via socket |
-| Processor | `processor.py` | **PySpark DStream** + YOLO11s | Receives frames, splits into RDD micro-batches, detects people |
+| Processor | `processor.py` | **PySpark DStream** + YOLO11s | DStream micro-batch pipeline → `rdd.collect()` → YOLO on driver |
 | Storage | `storage.py` | **PySpark DataFrame** | Receives results, saves JSON + aggregates statistics |
 
 ### Big Data Usage
 
-- **Processor**: `StreamingContext` -> `socketTextStream` -> `foreachRDD` -> `foreachPartition`  
-  Each second, the stream is split into **micro-batch RDDs**, distributed across Spark workers for parallel processing
-- **Storage**: `DataFrame.agg(min/max/avg/count)` + Parquet output to aggregate results from thousands of frames
+- **Processor**: `StreamingContext` → `socketTextStream` → `filter` → `map` → `foreachRDD(rdd.collect())`  
+  Spark DStream handles ingestion, filtering, and batching. Each micro-batch RDD is collected to the driver
+  for YOLO11s inference using **MPS/CUDA** (GPU-accelerated).
+- **Storage**: `DataFrame.agg(min/max/avg/count)` + Parquet to aggregate results from thousands of frames
+- **Design rationale**: YOLO runs on the driver (not in `foreachPartition` workers) to avoid MPS/PyTorch fork-safety
+  constraints on macOS Apple Silicon. On Linux with CUDA, workers handle inference in parallel via `foreachPartition`.
+
+### GPU Acceleration
+
+| Platform | Device | Inference Location |
+|----------|--------|-------------------|
+| Linux + NVIDIA | CUDA | Spark workers (`foreachPartition`) |
+| macOS Apple Silicon | MPS | Driver (`rdd.collect()`) |
+| CPU-only | CPU | Driver (`rdd.collect()`) |
+
+Device auto-detection: CUDA > MPS > CPU.
 
 ---
 
@@ -74,10 +92,12 @@ streamlit run app.py
 
 Features:
 - Upload video (mp4, avi, mov)
-- Adjustable confidence threshold
-- Per-frame YOLO11s detection with bounding boxes + person count
-- Real-time count chart
-- Download processed video
+- 3-server status board with live data flow visualization
+- Live annotated frame preview (bboxes + count)
+- Real-time person count chart
+- Progress bar + pipeline logs
+- Download annotated output video
+- Download summary.json
 
 ---
 
@@ -88,15 +108,14 @@ Lab05/
 ├── sender.py              # Server 1: Frame Forwarder
 ├── processor.py           # Server 2: PySpark Streaming + YOLO
 ├── storage.py             # Server 3: Storage + Aggregation
+├── build_video.py         # Annotated video builder
 ├── app.py                 # Streamlit UI
 ├── run_all.sh             # Orchestration script
 ├── requirements.txt       # Dependencies
-├── references/            # Instructor's sample code
-│   ├── sender.py
-│   └── receiver.py
 ├── data/
-│   └── pedestrian.mp4     # Demo video (add manually)
+│   └── input_video.mp4    # Demo video
 ├── output/                # Results (auto-generated)
+│   ├── annotated/         # Per-frame jpg + output_video.mp4
 │   ├── frames/            # Per-frame JSON
 │   ├── batch/             # Parquet files
 │   └── summary.json       # Aggregate statistics

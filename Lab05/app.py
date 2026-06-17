@@ -23,12 +23,12 @@ with st.expander("System Architecture", expanded=False):
     <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
     <div class="mermaid">
     flowchart LR
-        A[📹 Video] -->|frame| B(OpenCV<br/>sender.py)
-        B -->|TCP :6400| C{{PySpark DStream<br/>processor.py}}
-        C -->|YOLO11s| D[👤 Detection]
-        D -->|TCP :6401| E{{PySpark DataFrame<br/>storage.py}}
-        E -->|agg| F[📊 summary.json]
-        C -.->|workers| G[⚡ Spark]
+        A[Video] -->|frame| B(sender.py<br/>OpenCV)
+        B -->|TCP :6400| C{{processor.py<br/>PySpark DStream}}
+        C -->|rdd.collect| D[Driver<br/>YOLO11s + MPS/CUDA]
+        D -->|TCP :6401| E{{storage.py<br/>PySpark DataFrame}}
+        E -->|min/max/avg| F[summary.json]
+        E -->|write| G[frames.parquet]
     </div>
     <script>mermaid.run()</script>
     """, height=160)
@@ -42,6 +42,7 @@ with st.sidebar:
     st.caption("Model: YOLO11s")
     st.caption("Streaming: PySpark DStream")
     st.caption("Storage: PySpark DataFrame")
+    st.caption("GPU: MPS/CUDA auto-detect")
     st.caption(f"Input: {INPUT_SIZE}x{INPUT_SIZE}")
 
 pipe_file = st.file_uploader("Upload a video", type=["mp4", "avi", "mov", "mkv"])
