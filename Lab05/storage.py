@@ -19,7 +19,7 @@ LISTEN_PORT = 6401
 OUTPUT_DIR = "output"
 FRAMES_DIR = os.path.join(OUTPUT_DIR, "frames")
 BATCH_DIR = os.path.join(OUTPUT_DIR, "batch")
-SHUTDOWN_TIMEOUT = 10
+SHUTDOWN_TIMEOUT = 30
 
 pathlib.Path(FRAMES_DIR).mkdir(parents=True, exist_ok=True)
 pathlib.Path(BATCH_DIR).mkdir(parents=True, exist_ok=True)
