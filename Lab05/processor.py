@@ -3,6 +3,7 @@ import sys
 import json
 import socket
 import time
+import pathlib
 import numpy as np
 
 os.environ["PYSPARK_PYTHON"] = sys.executable
@@ -16,6 +17,7 @@ STREAM_HOST = "127.0.0.1"
 STREAM_PORT = 6400
 STORAGE_HOST = "127.0.0.1"
 STORAGE_PORT = 6401
+ANNOTATED_DIR = "output/annotated"
 MODEL_PATH = "yolo11s.pt"
 CONFIDENCE_THRESHOLD = 0.4
 FRAME_WIDTH = 640
@@ -72,6 +74,17 @@ def process_partition(iterator):
         }
         send_to_storage(result)
         print(f"[processor] timestamp={timestamp:.3f}, persons={len(bboxes)}")
+
+        annotated = image.copy()
+        for b in bboxes:
+            cv2.rectangle(annotated, (b["x"], b["y"]),
+                          (b["x"] + b["w"], b["y"] + b["h"]), (0, 255, 0), 2)
+            cv2.putText(annotated, f"person {b['score']:.2f}",
+                        (b["x"], b["y"] - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+        cv2.putText(annotated, f"Count: {len(bboxes)}", (10, 35),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        pathlib.Path(ANNOTATED_DIR).mkdir(parents=True, exist_ok=True)
+        cv2.imwrite(os.path.join(ANNOTATED_DIR, "latest.jpg"), annotated)
 
 
 def main():
