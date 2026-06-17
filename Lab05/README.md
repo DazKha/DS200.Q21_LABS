@@ -19,22 +19,39 @@ A 3-server people counting system using **PySpark Streaming** (DStream) + **YOLO
 ## Architecture
 
 ```
-┌──────────────┐   TCP :6400    ┌───────────────────────────────────┐   TCP :6401    ┌─────────────────────┐
-│   sender.py  │  ───────────>  │          processor.py             │  ───────────>  │     storage.py      │
-│   (OpenCV)   │   frame JSON   │  PySpark DStream      YOLO11s     │   bboxes JSON  │  PySpark DataFrame  │
-└──────────────┘                │  ┌──────────┐       ┌──────────┐ │                └─────────────────────┘
-                                │  │ DStream  │ ──>── │  Driver  │ │
-                                │  │ filter   │ .collect() │ YOLO  │ │
-                                │  │   map    │       │  + MPS  │ │
-                                │  └──────────┘       └──────────┘ │
-                                └───────────────────────────────────┘
+  Video ──> sender.py ──TCP :6400──> processor.py ──TCP :6401──> storage.py
+              │                         │                            │
+          OpenCV                    PySpark DStream           PySpark DataFrame
+          resize 640x640           socketTextStream           agg(min/max/avg)
+          JSON frames              rdd.collect() → YOLO11s    JSON + Parquet
+                                   bboxes + person_count      summary.json
 ```
 
-| Server | File | Technology | Role |
-|--------|------|------------|------|
-| Frame Forwarder | `sender.py` | OpenCV + TCP | Reads video, resizes 640x640, sends frames via TCP :6400 |
-| Processor | `processor.py` | **PySpark DStream** + YOLO11s | `socketTextStream` → `filter` → `map` → `foreachRDD(rdd.collect())` → YOLO on driver |
-| Storage | `storage.py` | **PySpark DataFrame** | Receives per-frame results via TCP :6401, saves JSON, aggregates |
+| Server | File | Role | Big Data Tech |
+|--------|------|------|---------------|
+| Sender | `sender.py` | Read video, resize, send frames | — |
+| Processor | `processor.py` | Receive stream, detect people, generate bboxes | **PySpark DStream** |
+| Storage | `storage.py` | Receive results, aggregate, save | **PySpark DataFrame** |
+
+### Data Flow
+
+```
+sender.py                          processor.py                        storage.py
+=========                          =============                        ==========
+
+read frame                         StreamingContext
+resize 640x640                     socketTextStream(:6400)
+encode JSON ──TCP :6400──>         filter + map
+                                   foreachRDD(rdd.collect())
+                                   YOLO11s on driver (MPS/CUDA)
+                                   detect person (class=0)
+                                   extract bboxes + count
+                                   encode JSON ──TCP :6401──>          receive JSON
+                                                                       save per-frame
+                                                                       Spark DataFrame.agg()
+                                                                       write summary.json
+                                                                       write frames.parquet
+```
 
 ### Big Data Usage
 
@@ -42,19 +59,20 @@ A 3-server people counting system using **PySpark Streaming** (DStream) + **YOLO
 |-----------|-------------|---------|
 | Processor | `StreamingContext.socketTextStream()` | Real-time frame ingestion via TCP socket |
 | Processor | `DStream.filter().map().foreachRDD()` | Micro-batch pipeline (1s intervals) |
-| Storage | `SparkSession.createDataFrame()` | Convert JSON results to Spark DataFrame |
+| Processor | `rdd.collect()` | Gather batch to driver for YOLO inference |
+| Storage | `SparkSession.createDataFrame()` | Convert results to Spark DataFrame |
 | Storage | `DataFrame.agg(min/max/avg/count)` | Aggregate statistics across all frames |
 | Storage | `DataFrame.write.parquet()` | Persistent batch output |
 
 ### GPU Acceleration
 
-| Platform | Device | Inference Location |
-|----------|--------|-------------------|
-| Linux + NVIDIA | CUDA | Spark workers (`foreachPartition`) |
-| macOS Apple Silicon | MPS | Driver (`rdd.collect()`) |
-| CPU-only | CPU | Driver (`rdd.collect()`) |
+| Platform | Device |
+|----------|--------|
+| Linux + NVIDIA GPU | CUDA |
+| macOS Apple Silicon | MPS |
+| CPU-only | CPU |
 
-Device auto-detection: `CUDA > MPS > CPU`. YOLO runs on driver on macOS to work around PyTorch/MPS fork-safety constraints.
+YOLO runs on the driver (main process) on macOS to work around PyTorch/MPS fork-safety constraints with PySpark workers.
 
 ---
 
