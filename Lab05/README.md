@@ -1,13 +1,13 @@
-# Lab05 - Hệ thống đếm số người qua camera
+# Lab05 - People Counting System
 
-> **Course:** DS200 - Dữ liệu lớn  
+> **Course:** DS200 - Big Data  
 > **Author:** Le Minh Kha (23520664)
 
-Hệ thống đếm số lượng người hiện diện trong khung hình từ camera/video, sử dụng **PySpark Streaming** kết hợp **YOLO11s** object detection.
+A real-time people counting system using **PySpark Streaming** with **YOLO11s** object detection.
 
 ---
 
-## Kiến trúc
+## Architecture
 
 ```
 ┌──────────────┐   TCP :6400    ┌─────────────────────────┐   TCP :6401    ┌─────────────────────┐
@@ -16,57 +16,51 @@ Hệ thống đếm số lượng người hiện diện trong khung hình từ 
 └──────────────┘                └─────────────────────────┘                └─────────────────────┘
 ```
 
-| Server | File | Công nghệ | Vai trò |
-|--------|------|-----------|---------|
-| Frame Forwarder | `sender.py` | OpenCV + TCP | Đọc video, resize 640x640, gửi frame qua socket |
-| Processor | `processor.py` | **PySpark DStream** + YOLO11s | Nhận frame, chia RDD micro-batch, detect người |
-| Storage | `storage.py` | **PySpark DataFrame** | Nhận kết quả, lưu JSON + aggregate thống kê |
+| Server | File | Technology | Role |
+|--------|------|------------|------|
+| Frame Forwarder | `sender.py` | OpenCV + TCP | Reads video, resizes to 640x640, sends frames via socket |
+| Processor | `processor.py` | **PySpark DStream** + YOLO11s | Receives frames, splits into RDD micro-batches, detects people |
+| Storage | `storage.py` | **PySpark DataFrame** | Receives results, saves JSON + aggregates statistics |
 
-### Big Data trong hệ thống
+### Big Data Usage
 
 - **Processor**: `StreamingContext` -> `socketTextStream` -> `foreachRDD` -> `foreachPartition`  
-  Mỗi giây stream được chia thành micro-batch RDD, Spark phân phối xử lý qua nhiều worker song song
-- **Storage**: `DataFrame.agg(min/max/avg/count)` + ghi Parquet để aggregate kết quả từ hàng nghìn frame
+  Each second, the stream is split into **micro-batch RDDs**, distributed across Spark workers for parallel processing
+- **Storage**: `DataFrame.agg(min/max/avg/count)` + Parquet output to aggregate results from thousands of frames
 
 ---
 
-## Cài đặt
+## Setup
 
 ```bash
-# Tạo virtual environment
 python -m venv .venv
 source .venv/bin/activate
-
-# Cài dependencies
 pip install -r requirements.txt
 ```
 
 ---
 
-## Chạy hệ thống 3 server
+## Running the 3-Server System
 
 ```bash
-# Mặc định: data/pedestrian.mp4
+# Default: data/pedestrian.mp4
 ./run_all.sh
 
-# Hoặc chỉ định video khác
+# Custom video
 ./run_all.sh path/to/video.mp4
 ```
 
-Chạy thủ công từng server (3 terminal):
+Manual (3 terminals):
 
 ```bash
 # Terminal 1 - Storage
-source .venv/bin/activate
-python storage.py
+source .venv/bin/activate && python storage.py
 
 # Terminal 2 - Processor (Spark)
-source .venv/bin/activate
-python processor.py
+source .venv/bin/activate && python processor.py
 
 # Terminal 3 - Sender
-source .venv/bin/activate
-python sender.py data/pedestrian.mp4
+source .venv/bin/activate && python sender.py data/pedestrian.mp4
 ```
 
 ---
@@ -78,39 +72,35 @@ source .venv/bin/activate
 streamlit run app.py
 ```
 
-Tính năng:
+Features:
 - Upload video (mp4, avi, mov)
-- Chỉnh confidence threshold
-- Process từng frame với YOLO11s, vẽ bounding box + đếm người
-- Biểu đồ count theo thời gian
-- Download video output
+- Adjustable confidence threshold
+- Per-frame YOLO11s detection with bounding boxes + person count
+- Real-time count chart
+- Download processed video
 
 ---
 
-## Cấu trúc thư mục
+## Project Structure
 
 ```
 Lab05/
 ├── sender.py              # Server 1: Frame Forwarder
 ├── processor.py           # Server 2: PySpark Streaming + YOLO
-├── storage.py             # Server 3: Storage + Aggregate
+├── storage.py             # Server 3: Storage + Aggregation
 ├── app.py                 # Streamlit UI
-├── run_all.sh             # Script chạy toàn bộ hệ thống
+├── run_all.sh             # Orchestration script
 ├── requirements.txt       # Dependencies
-├── references/            # Code mẫu của giảng viên
+├── references/            # Instructor's sample code
 │   ├── sender.py
 │   └── receiver.py
 ├── data/
-│   ├── README.md
-│   └── pedestrian.mp4     # Video demo (tự thêm)
-├── output/                # Kết quả (auto-generated)
-│   ├── frames/            # JSON bounding box từng frame
-│   ├── batch/             # Parquet
-│   └── summary.json       # Thống kê tổng hợp
-└── docs/                  # Design docs
-    └── superpowers/
-        ├── specs/
-        └── plans/
+│   └── pedestrian.mp4     # Demo video (add manually)
+├── output/                # Results (auto-generated)
+│   ├── frames/            # Per-frame JSON
+│   ├── batch/             # Parquet files
+│   └── summary.json       # Aggregate statistics
+└── docs/                  # Design documents
 ```
 
 ---
@@ -120,6 +110,6 @@ Lab05/
 - **Python 3**
 - **PySpark** 4.x (DStream + DataFrame)
 - **YOLO11s** via Ultralytics + PyTorch
-- **OpenCV** (đọc video, vẽ bbox)
-- **Streamlit** (giao diện web)
-- **TCP Sockets** (communication giữa 3 server)
+- **OpenCV** (video I/O, box drawing)
+- **Streamlit** (web UI)
+- **TCP Sockets** (inter-server communication)
