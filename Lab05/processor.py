@@ -78,7 +78,7 @@ def main():
     spark = (
         SparkSession.builder
         .appName("People Counting - Processor")
-        .config("spark.driver.memory", "2g")
+        .config("spark.driver.memory", "4g")
         .getOrCreate()
     )
     sc = spark.sparkContext
