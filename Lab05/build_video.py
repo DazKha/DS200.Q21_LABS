@@ -32,7 +32,8 @@ def main():
 
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     output_path = os.path.join(ANNOTATED_DIR, "output_video.mp4")
-    fps = max(1, int(len(frames_data) / 15))
+    duration = frames_data[-1][0] - frames_data[0][0]
+    fps = max(1, int(len(frames_data) / duration)) if duration > 0 else 24
     writer = cv2.VideoWriter(output_path, fourcc, fps, (w, h))
 
     for _, filepath in frames_data:
