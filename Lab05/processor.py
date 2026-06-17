@@ -25,6 +25,26 @@ FRAME_WIDTH = 640
 FRAME_HEIGHT = 640
 
 
+def get_device():
+    try:
+        import torch
+        if torch.cuda.is_available():
+            return "cuda:0"
+    except ImportError:
+        pass
+    try:
+        import torch
+        if torch.backends.mps.is_available():
+            return "mps"
+    except (ImportError, AttributeError):
+        pass
+    return "cpu"
+
+
+DEVICE = get_device()
+print(f"[processor] Using device: {DEVICE}")
+
+
 def send_to_storage(data):
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -53,7 +73,8 @@ def process_partition(iterator):
         )
         timestamp = item["timestamp"]
 
-        results = model(image, classes=[0], conf=CONFIDENCE_THRESHOLD, verbose=False)[0]
+        results = model(image, classes=[0], conf=CONFIDENCE_THRESHOLD,
+                        device=DEVICE, verbose=False)[0]
         boxes = results.boxes
 
         bboxes = []
