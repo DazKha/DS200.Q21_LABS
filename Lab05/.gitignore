@@ -9,3 +9,6 @@ models/
 __pycache__/
 *.pyc
 .DS_Store
+references/
+skills-lock.json
+
