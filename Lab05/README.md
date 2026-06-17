@@ -21,10 +21,10 @@ A 3-server people counting system using **PySpark Streaming** (DStream) + **YOLO
 ```
   Video ──> sender.py ──TCP :6400──> processor.py ──TCP :6401──> storage.py
               │                         │                            │
-          OpenCV                    PySpark DStream           PySpark DataFrame
-          resize 640x640           socketTextStream           agg(min/max/avg)
-          JSON frames              rdd.collect() → YOLO11s    JSON + Parquet
-                                   bboxes + person_count      summary.json
+       OpenCV + JPEG base64      PySpark DStream            PySpark DataFrame
+       resize 640x640            socketTextStream            agg(min/max/avg)
+       base64 encoded frames     rdd.collect() → YOLO11s     JSON + Parquet
+                                 bboxes + person_count       summary.json
 ```
 
 | Server | File | Role | Big Data Tech |
@@ -41,7 +41,7 @@ sender.py                          processor.py                        storage.p
 
 read frame                         StreamingContext
 resize 640x640                     socketTextStream(:6400)
-encode JSON ──TCP :6400──>         filter + map
+encode JPEG + base64 ──TCP :6400──>         filter + map
                                    foreachRDD(rdd.collect())
                                    YOLO11s on driver (MPS/CUDA)
                                    detect person (class=0)
@@ -139,7 +139,7 @@ Lab05/
 │   ├── batch/             # Parquet files (Spark DataFrame output)
 │   ├── frames/            # Per-frame JSON
 │   └── annotated/         # Per-frame jpg + output_video.mp4
-└── app.py                 # Streamlit UI (extra, not required)
+└── README.md
 ```
 
 ---
@@ -158,13 +158,13 @@ Example `summary.json`:
 ```json
 {
   "video_summary": {
-    "total_frames": 554,
+    "total_frames": 734,
     "min_persons_per_frame": 0,
     "max_persons_per_frame": 7,
-    "avg_persons_per_frame": 2.68
+    "avg_persons_per_frame": 2.24
   },
   "peak_frames": [
-    {"timestamp": 1781690112.0, "person_count": 7}
+    {"timestamp": 1781712896.0, "person_count": 7}
   ]
 }
 ```
