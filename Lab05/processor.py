@@ -1,4 +1,5 @@
 import os
+os.environ["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] = "YES"
 import sys
 import json
 import socket
@@ -25,26 +26,6 @@ FRAME_WIDTH = 640
 FRAME_HEIGHT = 640
 
 
-def get_device():
-    try:
-        import torch
-        if torch.cuda.is_available():
-            return "cuda:0"
-    except ImportError:
-        pass
-    try:
-        import torch
-        if torch.backends.mps.is_available():
-            return "mps"
-    except (ImportError, AttributeError):
-        pass
-    return "cpu"
-
-
-DEVICE = get_device()
-print(f"[processor] Using device: {DEVICE}")
-
-
 def send_to_storage(data):
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -57,10 +38,17 @@ def send_to_storage(data):
 
 def process_partition(iterator):
     import cv2
+    import torch
     from ultralytics import YOLO
+
+    if torch.cuda.is_available():
+        device = "cuda:0"
+    else:
+        device = "cpu"
 
     model = YOLO(MODEL_PATH)
     model.fuse()
+    print(f"[processor-worker] Using device: {device}, PID={os.getpid()}")
 
     for item in iterator:
         if isinstance(item, str):
@@ -74,7 +62,7 @@ def process_partition(iterator):
         timestamp = item["timestamp"]
 
         results = model(image, classes=[0], conf=CONFIDENCE_THRESHOLD,
-                        device=DEVICE, verbose=False)[0]
+                        device=device, verbose=False)[0]
         boxes = results.boxes
 
         bboxes = []
@@ -115,6 +103,7 @@ def main():
         SparkSession.builder
         .appName("People Counting - Processor")
         .config("spark.driver.memory", "4g")
+        .config("spark.python.worker.reuse", "true")
         .getOrCreate()
     )
     sc = spark.sparkContext
