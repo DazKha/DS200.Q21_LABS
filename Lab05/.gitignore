@@ -1,7 +1,6 @@
 output/frames/
 output/batch/
-output/summary.json
-output/annotated/
+output/annotated/*.jpg
 data/*.mp4
 data/*.avi
 data/*.mov

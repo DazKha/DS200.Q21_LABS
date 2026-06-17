@@ -3,7 +3,16 @@
 > **Course:** DS200 - Big Data  
 > **Author:** Le Minh Kha (23520664)
 
-A real-time people counting system using **PySpark Streaming** with **YOLO11s** object detection.
+A 3-server people counting system using **PySpark Streaming** (DStream) + **YOLO11s** object detection.
+
+---
+
+## System Requirements
+
+- Một server nhận khung hình từ camera/video và gửi đến server xử lý  
+- Một server xử lý thực thi nhận diện đối tượng (people detection) → bounding boxes  
+- Một server lưu trữ kết quả + aggregate  
+- **Phải sử dụng công nghệ dữ liệu lớn** (PySpark)
 
 ---
 
@@ -23,18 +32,19 @@ A real-time people counting system using **PySpark Streaming** with **YOLO11s** 
 
 | Server | File | Technology | Role |
 |--------|------|------------|------|
-| Frame Forwarder | `sender.py` | OpenCV + TCP | Reads video, resizes to 640x640, sends frames via TCP :6400 |
-| Processor | `processor.py` | **PySpark DStream** + YOLO11s | DStream micro-batch pipeline → `rdd.collect()` → YOLO on driver |
-| Storage | `storage.py` | **PySpark DataFrame** | Receives results via TCP :6401, saves JSON + aggregates (min/max/avg/count) |
+| Frame Forwarder | `sender.py` | OpenCV + TCP | Reads video, resizes 640x640, sends frames via TCP :6400 |
+| Processor | `processor.py` | **PySpark DStream** + YOLO11s | `socketTextStream` → `filter` → `map` → `foreachRDD(rdd.collect())` → YOLO on driver |
+| Storage | `storage.py` | **PySpark DataFrame** | Receives per-frame results via TCP :6401, saves JSON, aggregates |
 
 ### Big Data Usage
 
-- **Processor**: `StreamingContext` → `socketTextStream` → `filter` → `map` → `foreachRDD(rdd.collect())`  
-  Spark DStream handles ingestion, filtering, and micro-batching. Each batch RDD is collected to the driver
-  for YOLO11s inference using **MPS/CUDA** (GPU-accelerated).
-- **Storage**: `DataFrame.agg(min/max/avg/count)` + Parquet (`output/batch/frames.parquet`) to aggregate results
-- **Design rationale**: YOLO runs on the driver (not in `foreachPartition` workers) to avoid MPS/PyTorch fork-safety
-  constraints on macOS Apple Silicon. On Linux with CUDA, workers handle inference in parallel.
+| Component | PySpark API | Purpose |
+|-----------|-------------|---------|
+| Processor | `StreamingContext.socketTextStream()` | Real-time frame ingestion via TCP socket |
+| Processor | `DStream.filter().map().foreachRDD()` | Micro-batch pipeline (1s intervals) |
+| Storage | `SparkSession.createDataFrame()` | Convert JSON results to Spark DataFrame |
+| Storage | `DataFrame.agg(min/max/avg/count)` | Aggregate statistics across all frames |
+| Storage | `DataFrame.write.parquet()` | Persistent batch output |
 
 ### GPU Acceleration
 
@@ -44,13 +54,13 @@ A real-time people counting system using **PySpark Streaming** with **YOLO11s** 
 | macOS Apple Silicon | MPS | Driver (`rdd.collect()`) |
 | CPU-only | CPU | Driver (`rdd.collect()`) |
 
-Device auto-detection order: `CUDA > MPS > CPU`.
+Device auto-detection: `CUDA > MPS > CPU`. YOLO runs on driver on macOS to work around PyTorch/MPS fork-safety constraints.
 
 ---
 
 ## Setup
 
-This project reuses **Lab04's virtual environment** (`.venv` with Python 3.13, PySpark 4.x, etc.):
+This project reuses **Lab04's virtual environment**:
 
 ```bash
 source ../Lab04/.venv/bin/activate
@@ -61,49 +71,34 @@ YOLO11s model (`yolo11s.pt`, ~18 MB) is auto-downloaded by ultralytics on first 
 
 ---
 
-## Running the 3-Server System
+## Running
 
-### One-command (orchestration script)
+### One command
 
 ```bash
-# Uses data/input_video.mp4 by default
 ./run_all.sh
-
-# Custom video
+# or with custom video:
 ./run_all.sh path/to/video.mp4
 ```
+
+The script automatically:
+1. Kills stale processes on ports 6400/6401
+2. Starts Storage (port 6401) → Sender (port 6400) → Processor (Spark)
+3. Waits for sender to finish, drains Spark, builds annotated video
+4. Prints `output/summary.json` results
 
 ### Manual (3 terminals)
 
 ```bash
-# Terminal 1 - Storage
+# Terminal 1 — Storage
 source ../Lab04/.venv/bin/activate && python storage.py
 
-# Terminal 2 - Processor (Spark)
+# Terminal 2 — Processor  
 source ../Lab04/.venv/bin/activate && python processor.py
 
-# Terminal 3 - Sender
+# Terminal 3 — Sender
 source ../Lab04/.venv/bin/activate && python sender.py data/input_video.mp4
 ```
-
----
-
-## Streamlit App
-
-```bash
-source ../Lab04/.venv/bin/activate
-streamlit run app.py
-```
-
-Features:
-- **Auto-displays existing results** — if `output/summary.json` exists, metrics, chart, and annotated video appear immediately
-- Upload video (mp4, avi, mov, mkv)
-- 3-server status board with live indicators (🟢 running / 🟡 waiting / ⚫ done)
-- Live annotated frame preview (bboxes + person count overlay)
-- Real-time person count line chart
-- Progress bar + pipeline logs
-- Download annotated output video (`output/annotated/output_video.mp4`)
-- Download `summary.json`
 
 ---
 
@@ -115,36 +110,19 @@ Lab05/
 ├── processor.py           # Server 2: PySpark DStream + YOLO11s (TCP :6400 → :6401)
 ├── storage.py             # Server 3: Storage + PySpark DataFrame aggregation
 ├── build_video.py         # Build annotated output video from per-frame jpgs
-├── app.py                 # Streamlit web UI
-├── run_all.sh             # Orchestration script (kills stale, starts 3 servers)
+├── run_all.sh             # One-command orchestration script
 ├── requirements.txt       # Python dependencies
-├── .gitignore             # Ignores output/, data/*.mp4, *.pt, __pycache__
-├── 23520664.txt           # Student ID
 ├── yolo11s.pt             # YOLO11s model weights (auto-downloaded, ~18 MB)
 ├── data/
-│   ├── input_video.mp4    # Demo video (~4 MB, 1280x720)
-│   └── README.md          # Video source instructions
+│   └── input_video.mp4    # Demo video (1280x720)
 ├── references/            # Teacher's sample code (sender.py + receiver.py)
-├── docs/                  # Agent skill configuration
-├── models/                # Empty — model weights at Lab05 root
-└── output/                # Results (auto-generated by pipeline)
-    ├── annotated/         # Per-frame jpg + output_video.mp4
-    ├── frames/            # Per-frame JSON files
-    ├── batch/             # Parquet files (Spark DataFrame output)
-    └── summary.json       # Aggregate statistics
+├── output/                # Auto-generated results
+│   ├── summary.json       # Aggregate statistics
+│   ├── batch/             # Parquet files (Spark DataFrame output)
+│   ├── frames/            # Per-frame JSON
+│   └── annotated/         # Per-frame jpg + output_video.mp4
+└── app.py                 # Streamlit UI (extra, not required)
 ```
-
----
-
-## Tech Stack
-
-- **Python 3.13**
-- **PySpark 4.x** (DStream + DataFrame)
-- **YOLO11s** via Ultralytics + PyTorch
-- **MPS** (Apple Silicon) / **CUDA** (NVIDIA) GPU acceleration
-- **OpenCV** (video I/O, frame annotation)
-- **Streamlit** 1.42 (web UI)
-- **TCP Sockets** (inter-server communication)
 
 ---
 
@@ -154,6 +132,31 @@ Lab05/
 |------|--------|---------|
 | `output/summary.json` | JSON | Aggregated stats: total_frames, min/max/avg persons, peak frames |
 | `output/batch/frames.parquet` | Parquet | Full per-frame timestamp + person_count |
-| `output/annotated/output_video.mp4` | MP4 | All frames with YOLO bboxes drawn |
-| `output/annotated/latest.jpg` | JPEG | Latest processed frame (for Streamlit live preview) |
+| `output/annotated/output_video.mp4` | MP4 | All frames with YOLO bounding boxes drawn |
 | `output/frames/*.json` | JSON | Per-frame raw data (timestamp + bboxes) |
+
+Example `summary.json`:
+
+```json
+{
+  "video_summary": {
+    "total_frames": 554,
+    "min_persons_per_frame": 0,
+    "max_persons_per_frame": 7,
+    "avg_persons_per_frame": 2.68
+  },
+  "peak_frames": [
+    {"timestamp": 1781690112.0, "person_count": 7}
+  ]
+}
+```
+
+---
+
+## Tech Stack
+
+- **Python 3.13** + PySpark 4.x
+- **YOLO11s** (Ultralytics + PyTorch) — person detection
+- **MPS / CUDA** GPU acceleration (auto-detect)
+- **OpenCV** — video I/O, frame resizing, annotation
+- **TCP Sockets** — inter-server communication
