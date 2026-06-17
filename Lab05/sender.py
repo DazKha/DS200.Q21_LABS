@@ -25,15 +25,14 @@ def connect_tcp(host, port):
 
 def main():
     video_path = sys.argv[1] if len(sys.argv) > 1 else VIDEO_PATH
+
+    tcp_conn = connect_tcp(RECEIVER_HOST, RECEIVER_PORT)
+
     cap = cv.VideoCapture(video_path)
     if not cap.isOpened():
         print(f"[sender] Cannot open video: {video_path}")
+        tcp_conn.close()
         sys.exit(1)
-
-    fps = cap.get(cv.CAP_PROP_FPS)
-    frame_delay = 1.0 / fps if fps > 0 else 0.033
-
-    tcp_conn = connect_tcp(RECEIVER_HOST, RECEIVER_PORT)
 
     frame_count = 0
     try:

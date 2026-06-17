@@ -28,23 +28,39 @@ cleanup() {
 }
 trap cleanup SIGINT SIGTERM
 
+echo "[*] Killing stale processes on ports 6400 & 6401..."
+lsof -ti:6400 | xargs kill -9 2>/dev/null || true
+lsof -ti:6401 | xargs kill -9 2>/dev/null || true
+sleep 1
+
 echo "[*] Starting Storage Server..."
 python "$ROOT_DIR/storage.py" &
 CLEANUP_PIDS="$CLEANUP_PIDS $!"
 sleep 1
+
+echo "[*] Starting Frame Forwarder..."
+VIDEO="${1:-$ROOT_DIR/data/pedestrian.mp4}"
+if [ ! -f "$VIDEO" ]; then
+    echo "[ERROR] Video not found: $VIDEO"
+    echo "Usage: $0 <video_path>"
+    exit 1
+fi
+python "$ROOT_DIR/sender.py" "$VIDEO" &
+SENDER_PID=$!
+CLEANUP_PIDS="$CLEANUP_PIDS $SENDER_PID"
+sleep 2
 
 echo "[*] Starting Processor (Spark Streaming)..."
 python "$ROOT_DIR/processor.py" &
 CLEANUP_PIDS="$CLEANUP_PIDS $!"
 sleep 5
 
-echo "[*] Starting Frame Forwarder..."
-VIDEO="${1:-$ROOT_DIR/data/pedestrian.mp4}"
-python "$ROOT_DIR/sender.py" "$VIDEO"
+echo "[*] Pipeline running. Waiting for sender to finish..."
+wait $SENDER_PID 2>/dev/null || true
 echo "[*] Frame Forwarder finished."
 
 echo "[*] Waiting for processor to finish processing..."
-sleep 10
+sleep 15
 
 kill $(jobs -p) 2>/dev/null || true
 
