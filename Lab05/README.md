@@ -61,7 +61,7 @@ pip install -r requirements.txt
 ## Running the 3-Server System
 
 ```bash
-# Default: data/pedestrian.mp4
+# Default: data/input_video.mp4
 ./run_all.sh
 
 # Custom video
@@ -78,7 +78,7 @@ source .venv/bin/activate && python storage.py
 source .venv/bin/activate && python processor.py
 
 # Terminal 3 - Sender
-source .venv/bin/activate && python sender.py data/pedestrian.mp4
+source .venv/bin/activate && python sender.py data/input_video.mp4
 ```
 
 ---

@@ -5,7 +5,7 @@ import json
 import sys
 
 
-VIDEO_PATH = "data/pedestrian.mp4"
+VIDEO_PATH = "data/input_video.mp4"
 RECEIVER_HOST = "127.0.0.1"
 RECEIVER_PORT = 6400
 FRAME_WIDTH = 640

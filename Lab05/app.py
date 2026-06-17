@@ -45,6 +45,42 @@ with st.sidebar:
     st.caption("GPU: MPS/CUDA auto-detect")
     st.caption(f"Input: {INPUT_SIZE}x{INPUT_SIZE}")
 
+summary_path = os.path.join(ROOT_DIR, "output", "summary.json")
+video_out_path = os.path.join(ROOT_DIR, "output", "annotated", "output_video.mp4")
+parquet_dir = os.path.join(ROOT_DIR, "output", "batch")
+
+if os.path.exists(summary_path):
+    st.success("Existing results found.")
+
+    with open(summary_path) as f:
+        summary = json.load(f)
+    vs = summary.get("video_summary", {})
+
+    st.subheader("Spark Aggregation Results")
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Total Frames", vs.get("total_frames", 0))
+    c2.metric("Avg People/Frame", vs.get("avg_persons_per_frame", 0))
+    c3.metric("Max People", vs.get("max_persons_per_frame", 0))
+    c4.metric("Min People", vs.get("min_persons_per_frame", 0))
+
+    if os.path.exists(parquet_dir):
+        try:
+            df_pq = pd.read_parquet(parquet_dir)
+            st.line_chart(df_pq.set_index("timestamp"), y="person_count")
+        except Exception:
+            pass
+
+    if os.path.exists(video_out_path):
+        st.subheader("Annotated Output Video")
+        st.video(video_out_path)
+
+    with open(summary_path, "rb") as f:
+        st.download_button("Download summary.json", f,
+                           file_name="summary.json", mime="application/json")
+
+    st.divider()
+    st.caption("Upload a new video and re-run the pipeline below.")
+
 pipe_file = st.file_uploader("Upload a video", type=["mp4", "avi", "mov", "mkv"])
 
 if pipe_file:
@@ -134,6 +170,7 @@ if pipe_file:
             )
             processes.append(sender_proc)
             threading.Thread(target=reader_thread, args=(sender_proc,), daemon=True).start()
+            threading.Thread(target=reader_thread, args=(storage_proc,), daemon=True).start()
 
             for _ in range(10):
                 time.sleep(1)
@@ -203,7 +240,6 @@ if pipe_file:
 
             storage_status.info("🟡 Storage — aggregating...")
             for _ in range(40):
-                summary_path = os.path.join(ROOT_DIR, "output", "summary.json")
                 if os.path.exists(summary_path):
                     storage_status.success("🟢 Storage — done")
                     break
@@ -220,7 +256,6 @@ if pipe_file:
                     pass
 
         # Display results
-        summary_path = os.path.join(ROOT_DIR, "output", "summary.json")
         if os.path.exists(summary_path):
             with open(summary_path) as f:
                 summary = json.load(f)
@@ -235,7 +270,6 @@ if pipe_file:
             c3.metric("Max People", vs.get("max_persons_per_frame", 0))
             c4.metric("Min People", vs.get("min_persons_per_frame", 0))
 
-            parquet_dir = os.path.join(ROOT_DIR, "output", "batch")
             if os.path.exists(parquet_dir):
                 try:
                     df_pq = pd.read_parquet(parquet_dir)
@@ -243,11 +277,9 @@ if pipe_file:
                 except Exception:
                     pass
 
-            video_path = os.path.join(ROOT_DIR, "output", "annotated", "output_video.mp4")
-            if os.path.exists(video_path):
+            if os.path.exists(video_out_path):
                 st.subheader("Annotated Output Video")
-                with open(video_path, "rb") as vf:
-                    st.video(vf.read())
+                st.video(video_out_path)
 
             with open(summary_path, "rb") as f:
                 st.download_button("Download summary.json", f,

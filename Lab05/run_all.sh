@@ -39,7 +39,7 @@ STORAGE_PID=$!
 sleep 2
 
 echo "[*] Starting Frame Forwarder..."
-VIDEO="${1:-$ROOT_DIR/data/pedestrian.mp4}"
+VIDEO="${1:-$ROOT_DIR/data/input_video.mp4}"
 if [ ! -f "$VIDEO" ]; then
     echo "[ERROR] Video not found: $VIDEO"
     echo "Usage: $0 <video_path>"
