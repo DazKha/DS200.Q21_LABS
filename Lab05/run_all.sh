@@ -1,5 +1,4 @@
 #!/bin/bash
-set -e
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LAB04_DIR="$(dirname "$ROOT_DIR")/Lab04"
@@ -12,18 +11,16 @@ source "$VENV_DIR/bin/activate"
 
 echo "===== People Counting System ====="
 echo "1. Storage Server (port 6401)"
-echo "2. Processor Server (port 6400)"
-echo "3. Frame Forwarder (reads video)"
+echo "2. Frame Forwarder (port 6400)"
+echo "3. Processor Server (Spark DStream)"
 echo "=================================="
-
-CLEANUP_PIDS=""
 
 cleanup() {
     echo ""
     echo "Shutting down..."
-    for pid in $CLEANUP_PIDS; do
-        kill $pid 2>/dev/null || true
-    done
+    kill $STORAGE_PID 2>/dev/null || true
+    kill $PROCESSOR_PID 2>/dev/null || true
+    kill $SENDER_PID 2>/dev/null || true
     exit 0
 }
 trap cleanup SIGINT SIGTERM
@@ -38,8 +35,8 @@ sleep 1
 
 echo "[*] Starting Storage Server..."
 python "$ROOT_DIR/storage.py" &
-CLEANUP_PIDS="$CLEANUP_PIDS $!"
-sleep 1
+STORAGE_PID=$!
+sleep 2
 
 echo "[*] Starting Frame Forwarder..."
 VIDEO="${1:-$ROOT_DIR/data/pedestrian.mp4}"
@@ -50,21 +47,36 @@ if [ ! -f "$VIDEO" ]; then
 fi
 python "$ROOT_DIR/sender.py" "$VIDEO" &
 SENDER_PID=$!
-CLEANUP_PIDS="$CLEANUP_PIDS $SENDER_PID"
 sleep 2
 
 echo "[*] Starting Processor (Spark Streaming)..."
 python "$ROOT_DIR/processor.py" &
-CLEANUP_PIDS="$CLEANUP_PIDS $!"
-sleep 5
+PROCESSOR_PID=$!
+sleep 8
 
-echo "[*] Pipeline running. Waiting for sender to finish..."
-wait $SENDER_PID 2>/dev/null || true
-echo "[*] Frame Forwarder finished."
+echo "[*] Pipeline running. Waiting for sender..."
+wait $SENDER_PID 2>/dev/null
+echo "[*] Sender finished."
 
-echo "[*] Waiting for processor to finish processing..."
-sleep 15
+echo "[*] Waiting for Spark to drain (20s)..."
+sleep 20
 
-kill $(jobs -p) 2>/dev/null || true
+echo "[*] Stopping processor..."
+kill $PROCESSOR_PID 2>/dev/null
+wait $PROCESSOR_PID 2>/dev/null
 
-echo "[*] All done. Check output/summary.json for results."
+echo "[*] Waiting for storage to aggregate..."
+for i in $(seq 1 30); do
+    if [ -f "$ROOT_DIR/output/summary.json" ]; then
+        echo "[*] Summary ready."
+        break
+    fi
+    sleep 2
+done
+
+kill $STORAGE_PID 2>/dev/null
+wait $STORAGE_PID 2>/dev/null
+
+echo ""
+echo "[*] Done. Results:"
+cat "$ROOT_DIR/output/summary.json" 2>/dev/null || echo "(no summary generated)"
