@@ -1,29 +1,29 @@
 {
   "video_summary": {
-    "total_frames": 633,
+    "total_frames": 734,
     "min_persons_per_frame": 0,
     "max_persons_per_frame": 7,
-    "avg_persons_per_frame": 2.52
+    "avg_persons_per_frame": 2.33
   },
   "peak_frames": [
     {
-      "timestamp": 1781708928.0,
+      "timestamp": 1781711744.0,
       "person_count": 7
     },
     {
-      "timestamp": 1781708928.0,
+      "timestamp": 1781711744.0,
       "person_count": 7
     },
     {
-      "timestamp": 1781708928.0,
+      "timestamp": 1781711744.0,
       "person_count": 6
     },
     {
-      "timestamp": 1781708928.0,
+      "timestamp": 1781711744.0,
       "person_count": 6
     },
     {
-      "timestamp": 1781708928.0,
+      "timestamp": 1781711744.0,
       "person_count": 6
     }
   ]
