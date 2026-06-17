@@ -77,6 +77,9 @@ done
 kill $STORAGE_PID 2>/dev/null
 wait $STORAGE_PID 2>/dev/null
 
+echo "[*] Building annotated video..."
+python "$ROOT_DIR/build_video.py" 2>/dev/null
+
 echo ""
 echo "[*] Done. Results:"
 cat "$ROOT_DIR/output/summary.json" 2>/dev/null || echo "(no summary generated)"

@@ -242,6 +242,12 @@ if pipe_file:
                 except Exception:
                     pass
 
+            video_path = os.path.join(ROOT_DIR, "output", "annotated", "output_video.mp4")
+            if os.path.exists(video_path):
+                st.subheader("Annotated Output Video")
+                with open(video_path, "rb") as vf:
+                    st.video(vf.read())
+
             with open(summary_path, "rb") as f:
                 st.download_button("Download summary.json", f,
                                    file_name="summary.json", mime="application/json")

@@ -59,6 +59,7 @@ def save_frame(data):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
+
 def aggregate_results(spark):
     if not received_data:
         print("[storage] No data to aggregate.")
