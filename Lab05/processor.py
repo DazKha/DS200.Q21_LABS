@@ -3,6 +3,7 @@ import sys
 import json
 import socket
 import time
+import signal
 import pathlib
 import numpy as np
 
@@ -111,6 +112,14 @@ def main():
 
     print(f"[processor] Spark Streaming started on {STREAM_HOST}:{STREAM_PORT}")
     ssc.start()
+
+    def shutdown(sig, frame):
+        print("[processor] Shutting down gracefully...")
+        ssc.stop(stopSparkContext=True, stopGracefully=False)
+
+    signal.signal(signal.SIGTERM, shutdown)
+    signal.signal(signal.SIGINT, shutdown)
+
     ssc.awaitTermination()
 
 
