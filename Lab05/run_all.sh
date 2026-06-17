@@ -58,12 +58,9 @@ echo "[*] Pipeline running. Waiting for sender..."
 wait $SENDER_PID 2>/dev/null
 echo "[*] Sender finished."
 
-echo "[*] Waiting for Spark to drain (20s)..."
-sleep 20
-
-echo "[*] Stopping processor..."
-kill $PROCESSOR_PID 2>/dev/null
+echo "[*] Waiting for processor to drain..."
 wait $PROCESSOR_PID 2>/dev/null
+echo "[*] Processor stopped."
 
 echo "[*] Waiting for storage to aggregate..."
 for i in $(seq 1 30); do

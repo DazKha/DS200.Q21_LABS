@@ -3,7 +3,6 @@ import sys
 import json
 import socket
 import time
-import signal
 import pathlib
 import numpy as np
 
@@ -124,23 +123,23 @@ def main():
 
     stream = ssc.socketTextStream(STREAM_HOST, STREAM_PORT)
 
+    empty_batches = [0]
+
     def foreach_rdd_handler(time, rdd):
         items = rdd.collect()
         if items:
+            empty_batches[0] = 0
             process_batch(items)
+        else:
+            empty_batches[0] += 1
+            if empty_batches[0] >= 5:
+                print("[processor] Stream ended. Shutting down...")
+                ssc.stop(stopSparkContext=True, stopGracefully=False)
 
     stream.foreachRDD(foreach_rdd_handler)
 
     print(f"[processor] Spark Streaming started on {STREAM_HOST}:{STREAM_PORT}")
     ssc.start()
-
-    def shutdown(sig, frame):
-        print("[processor] Shutting down gracefully...")
-        ssc.stop(stopSparkContext=True, stopGracefully=False)
-
-    signal.signal(signal.SIGTERM, shutdown)
-    signal.signal(signal.SIGINT, shutdown)
-
     ssc.awaitTermination()
 
 
