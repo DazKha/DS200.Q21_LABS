@@ -1,5 +1,4 @@
 import os
-os.environ["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] = "YES"
 import sys
 import json
 import socket
@@ -10,6 +9,10 @@ import numpy as np
 
 os.environ["PYSPARK_PYTHON"] = sys.executable
 os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
+
+import torch
+from ultralytics import YOLO
+import cv2
 
 from pyspark.sql import SparkSession
 from pyspark.streaming import StreamingContext
@@ -26,6 +29,16 @@ FRAME_WIDTH = 640
 FRAME_HEIGHT = 640
 
 
+if torch.cuda.is_available():
+    DEVICE = "cuda:0"
+elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+    DEVICE = "mps"
+else:
+    DEVICE = "cpu"
+
+print(f"[processor] Device: {DEVICE}")
+
+
 def send_to_storage(data):
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -36,21 +49,20 @@ def send_to_storage(data):
         print(f"[processor] Failed to send to storage: {e}")
 
 
-def process_partition(iterator):
-    import cv2
-    import torch
-    from ultralytics import YOLO
+model = None
 
-    if torch.cuda.is_available():
-        device = "cuda:0"
-    else:
-        device = "cpu"
 
-    model = YOLO(MODEL_PATH)
-    model.fuse()
-    print(f"[processor-worker] Using device: {device}, PID={os.getpid()}")
+def get_model():
+    global model
+    if model is None:
+        model = YOLO(MODEL_PATH)
+        model.fuse()
+    return model
 
-    for item in iterator:
+
+def process_batch(items):
+    model = get_model()
+    for item in items:
         if isinstance(item, str):
             item = json.loads(item)
         if "image" not in item or "timestamp" not in item:
@@ -62,7 +74,7 @@ def process_partition(iterator):
         timestamp = item["timestamp"]
 
         results = model(image, classes=[0], conf=CONFIDENCE_THRESHOLD,
-                        device=device, verbose=False)[0]
+                        device=DEVICE, verbose=False)[0]
         boxes = results.boxes
 
         bboxes = []
@@ -103,7 +115,6 @@ def main():
         SparkSession.builder
         .appName("People Counting - Processor")
         .config("spark.driver.memory", "4g")
-        .config("spark.python.worker.reuse", "true")
         .getOrCreate()
     )
     sc = spark.sparkContext
@@ -113,13 +124,12 @@ def main():
 
     stream = ssc.socketTextStream(STREAM_HOST, STREAM_PORT)
 
-    (
-        stream
-        .filter(lambda line: line.strip() != "")
-        .map(lambda line: json.loads(line))
-        .filter(lambda item: "image" in item and "timestamp" in item)
-        .foreachRDD(lambda rdd: rdd.foreachPartition(process_partition))
-    )
+    def foreach_rdd_handler(time, rdd):
+        items = rdd.collect()
+        if items:
+            process_batch(items)
+
+    stream.foreachRDD(foreach_rdd_handler)
 
     print(f"[processor] Spark Streaming started on {STREAM_HOST}:{STREAM_PORT}")
     ssc.start()
