@@ -4,7 +4,9 @@ import json
 import shutil
 import tempfile
 import subprocess
+import threading
 import time
+import re
 from collections import deque
 
 import streamlit as st
@@ -205,30 +207,49 @@ with tab2:
         col3.metric("Resolution", f"{orig_w}x{orig_h}")
 
         if st.button("Run Full Pipeline", type="primary", key="pipe_run"):
-            status_container = st.empty()
-            log_container = st.empty()
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            chart_placeholder = st.empty()
+            log_expander = st.expander("Pipeline Logs", expanded=False)
+            log_area = log_expander.empty()
 
             logs = []
             processes = []
+            frame_counts = []
 
             def add_log(msg):
                 logs.append(msg)
-                log_container.code("\n".join(logs[-25:]), language="bash")
+                log_area.code("\n".join(logs[-20:]), language="bash")
+
+            def reader_thread(proc, name):
+                for line in proc.stdout:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    if "person" in line.lower():
+                        add_log(line)
+                        m = re.search(r"persons=(\d+)", line)
+                        if m:
+                            frame_counts.append(int(m.group(1)))
+                    elif "Sent frame" in line:
+                        m = re.search(r"Sent frame (\d+)", line)
+                        if m:
+                            progress_bar.progress(min(int(m.group(1)) / total_frames, 1.0))
+                            status_text.text(f"Sending frame {m.group(1)}/{total_frames}")
+                    elif any(kw in line for kw in ["Video ended", "Shutdown", "Listening",
+                                                    "Spark Streaming", "Connected"]):
+                        add_log(line)
 
             try:
-                # 1. Start storage
-                add_log("[*] Starting Storage Server (TCP :6401)...")
+                add_log("[*] Starting Storage Server...")
                 storage_proc = subprocess.Popen(
                     [sys.executable, os.path.join(ROOT_DIR, "storage.py")],
                     cwd=ROOT_DIR,
-                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                    text=True
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
                 )
-                processes.append(("storage.py", storage_proc))
+                processes.append(storage_proc)
                 time.sleep(2)
-                add_log("[storage] Listening on 127.0.0.1:6401")
 
-                # 2. Start processor
                 add_log("[*] Starting Processor (PySpark DStream)...")
                 env = os.environ.copy()
                 env["PYSPARK_PYTHON"] = sys.executable
@@ -236,62 +257,60 @@ with tab2:
                 processor_proc = subprocess.Popen(
                     [sys.executable, os.path.join(ROOT_DIR, "processor.py")],
                     cwd=ROOT_DIR,
-                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                    text=True, env=env
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env
                 )
-                processes.append(("processor.py", processor_proc))
+                processes.append(processor_proc)
+                t_processor = threading.Thread(target=reader_thread,
+                                               args=(processor_proc, "processor"),
+                                               daemon=True)
+                t_processor.start()
                 time.sleep(8)
-                add_log("[processor] Spark Streaming started on 127.0.0.1:6400")
 
-                # 3. Run sender
-                add_log(f"[*] Starting Sender (reading video: {total_frames} frames)...")
+                add_log(f"[*] Starting Sender ({total_frames} frames)...")
                 sender_proc = subprocess.Popen(
                     [sys.executable, os.path.join(ROOT_DIR, "sender.py"), video_path],
                     cwd=ROOT_DIR,
-                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                    text=True
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
                 )
-                processes.append(("sender.py", sender_proc))
+                processes.append(sender_proc)
+                t_sender = threading.Thread(target=reader_thread,
+                                            args=(sender_proc, "sender"),
+                                            daemon=True)
+                t_sender.start()
 
-                # Stream sender logs
-                for line in sender_proc.stdout:
-                    line = line.strip()
-                    if line:
-                        if "persons" in line.lower():
-                            add_log(line)
-                        elif "Video ended" in line or "Shutdown" in line:
-                            add_log(line)
+                while sender_proc.poll() is None:
+                    time.sleep(1)
+                    if len(frame_counts) > 3:
+                        df_live = pd.DataFrame(
+                            {"frame": range(len(frame_counts)), "count": frame_counts}
+                        )
+                        chart_placeholder.line_chart(df_live.set_index("frame"), y="count")
 
                 sender_proc.wait()
-                add_log("[sender] Finished.")
+                progress_bar.progress(1.0)
+                status_text.text("Sender finished. Waiting for Spark to drain...")
+                add_log("[sender] Finished. Waiting for Spark to drain...")
 
-                # Wait for Spark to drain
-                add_log("[*] Waiting for Spark to finish processing...")
-                time.sleep(15)
-
-                # Stop processor
-                processor_proc.terminate()
-                processor_proc.wait(timeout=10)
-                add_log("[processor] Stopped.")
-
-            except Exception as e:
-                add_log(f"[ERROR] {e}")
-            finally:
-                for name, proc in reversed(processes):
+                time.sleep(10)
+                for proc in processes:
+                    proc.terminate()
                     try:
-                        proc.terminate()
                         proc.wait(timeout=5)
                     except Exception:
                         proc.kill()
-                        try:
-                            proc.wait(timeout=2)
-                        except Exception:
-                            pass
+
+            except Exception as e:
+                add_log(f"[ERROR] {e}")
+                for proc in processes:
+                    try:
+                        proc.kill()
+                    except Exception:
+                        pass
 
             # Read results
             summary_path = os.path.join(ROOT_DIR, "output", "summary.json")
-            status_container.empty()
-            log_container.empty()
+            progress_bar.empty()
+            status_text.empty()
 
             if os.path.exists(summary_path):
                 with open(summary_path) as f:
@@ -332,6 +351,3 @@ with tab2:
                     "Check console logs for errors."
                 )
 
-            # Show logs
-            with st.expander("Pipeline Logs", expanded=False):
-                st.code("\n".join(logs), language="bash")
