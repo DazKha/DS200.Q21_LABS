@@ -111,26 +111,27 @@ if pipe_file:
 
         progress_bar = st.progress(0)
         status_text = st.empty()
+        log_box = st.empty()
 
-        preview_col, chart_col = st.columns([1, 1])
-        preview_placeholder = preview_col.empty()
-        chart_placeholder = chart_col.empty()
-
-        log_expander = st.expander("Pipeline Logs", expanded=False)
+        preview_placeholder = st.empty()
+        chart_placeholder = st.empty()
 
         logs = []
         processes = []
         person_counts = []
         sent_count = [0]
 
+        def append_log(msg):
+            logs.append(msg)
+            if len(logs) > 200:
+                logs.pop(0)
+
         def reader_thread(proc):
             for line in proc.stdout:
                 line = line.strip()
                 if not line:
                     continue
-                logs.append(line)
-                if len(logs) > 300:
-                    logs.pop(0)
+                append_log(line)
                 m = re.search(r"persons=(\d+)", line)
                 if m:
                     person_counts.append(int(m.group(1)))
@@ -138,97 +139,104 @@ if pipe_file:
                 if m:
                     sent_count[0] = int(m.group(1))
 
+        def render_ui():
+            log_box.code("\n".join(logs[-12:]), language="bash")
+            if sent_count[0] > 0:
+                progress_bar.progress(min(sent_count[0] / total_frames, 1.0))
+                status_text.text(f"Frames: {sent_count[0]}/{total_frames}")
+            if os.path.exists(annotated_path):
+                img = cv2.imread(annotated_path)
+                if img is not None:
+                    preview_placeholder.image(img[:, :, ::-1], channels="BGR",
+                        caption=f"Live — {len(person_counts)} frames processed",
+                        use_container_width=True)
+            if len(person_counts) > 3:
+                df = pd.DataFrame({"frame": range(len(person_counts)), "count": person_counts})
+                chart_placeholder.line_chart(df.set_index("frame"), y="count", height=250)
+
+        render_ui()
+
         try:
             os.makedirs(os.path.join(ROOT_DIR, "output", "annotated"), exist_ok=True)
             if os.path.exists(annotated_path):
                 os.remove(annotated_path)
 
-            logs.append("[*] Killing stale processes...")
+            env = os.environ.copy()
+            env["PYSPARK_PYTHON"] = sys.executable
+            env["PYSPARK_DRIVER_PYTHON"] = sys.executable
+            java_home = env.get("JAVA_HOME", "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home")
+            if os.path.isdir(java_home):
+                env["JAVA_HOME"] = java_home
+                env["PATH"] = os.path.join(java_home, "bin") + ":" + env.get("PATH", "")
+
+            append_log(f"[*] Python: {sys.executable}")
+            append_log(f"[*] JAVA_HOME: {env.get('JAVA_HOME', 'MISSING')}")
+            render_ui()
+
+            append_log("[*] Killing stale processes...")
             for port in [6400, 6401]:
                 os.system(f"lsof -ti:{port} | xargs kill -9 2>/dev/null")
             for name in ["processor.py", "storage.py", "sender.py"]:
                 os.system(f"pkill -f {name} 2>/dev/null")
             time.sleep(1)
 
-            # Start storage
-            logs.append("[*] Starting Storage Server (port 6401)...")
-            storage_status.info("⚪ Storage — starting...")
-            storage_proc = subprocess.Popen(
-                [sys.executable, os.path.join(ROOT_DIR, "storage.py")],
-                cwd=ROOT_DIR, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
-            )
-            processes.append(storage_proc)
+            def start_server(label, script, args=None):
+                append_log(f"[*] Starting {label}...")
+                cmd = [sys.executable, script]
+                if args:
+                    cmd.extend(args)
+                proc = subprocess.Popen(cmd, cwd=ROOT_DIR, stdout=subprocess.PIPE,
+                                        stderr=subprocess.STDOUT, text=True, env=env)
+                processes.append(proc)
+                threading.Thread(target=reader_thread, args=(proc,), daemon=True).start()
+                return proc
+
+            storage_proc = start_server("Storage", os.path.join(ROOT_DIR, "storage.py"))
             time.sleep(2)
-            storage_status.success("🟢 Storage — listening :6401")
+            render_ui()
+            if storage_proc.poll() is not None:
+                storage_status.error("❌ Storage crashed")
+                st.error("Storage crashed — check logs above")
+                st.stop()
+            storage_status.success("🟢 Storage")
 
-            # Start sender (binds 6400, blocks on accept)
-            logs.append("[*] Starting Sender (TCP :6400)...")
-            sender_status.info("🟡 Sender — waiting for processor...")
-            sender_proc = subprocess.Popen(
-                [sys.executable, os.path.join(ROOT_DIR, "sender.py"), video_path],
-                cwd=ROOT_DIR, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
-            )
-            processes.append(sender_proc)
-            threading.Thread(target=reader_thread, args=(sender_proc,), daemon=True).start()
-            threading.Thread(target=reader_thread, args=(storage_proc,), daemon=True).start()
-
-            for _ in range(10):
+            sender_proc = start_server("Sender", os.path.join(ROOT_DIR, "sender.py"), [video_path])
+            sender_status.info("🟡 Sender")
+            for _ in range(15):
                 time.sleep(1)
+                render_ui()
                 if sender_proc.poll() is not None:
-                    st.error("Sender crashed. Check logs.")
+                    sender_status.error("❌ Sender crashed")
+                    st.error("Sender crashed — check logs above")
                     st.stop()
-                if any("Waiting" in l for l in logs):
+                if any("Waiting" in l or "Connected" in l for l in logs):
                     break
 
-            # Start processor
-            logs.append("[*] Starting Processor (PySpark DStream)...")
-            processor_status.info("🟡 Processor — Spark initializing...")
-            env = os.environ.copy()
-            env["PYSPARK_PYTHON"] = sys.executable
-            env["PYSPARK_DRIVER_PYTHON"] = sys.executable
-            processor_proc = subprocess.Popen(
-                [sys.executable, os.path.join(ROOT_DIR, "processor.py")],
-                cwd=ROOT_DIR, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env
-            )
-            processes.append(processor_proc)
-            threading.Thread(target=reader_thread, args=(processor_proc,), daemon=True).start()
-            time.sleep(8)
-            processor_status.success("🟢 Processor — Spark Streaming active")
-            sender_status.success("🟢 Sender — streaming frames")
+            processor_proc = start_server("Processor", os.path.join(ROOT_DIR, "processor.py"))
+            processor_status.info("🟡 Processor")
+            for _ in range(20):
+                time.sleep(1)
+                render_ui()
+                if processor_proc.poll() is not None:
+                    processor_status.error("❌ Processor crashed")
+                    st.error("Processor crashed — check logs above")
+                    st.stop()
+                if any("Spark Streaming started" in l for l in logs):
+                    break
+            processor_status.success("🟢 Processor")
+            sender_status.success("🟢 Sender")
 
-            # Main polling loop
-            logs.append("[*] Pipeline running...")
+            append_log("[*] Pipeline running...")
             while sender_proc.poll() is None:
                 time.sleep(1)
-
-                log_expander.code("\n".join(logs[-15:]), language="bash")
-
-                if sent_count[0] > 0:
-                    progress_bar.progress(min(sent_count[0] / total_frames, 1.0))
-                    status_text.text(f"Frames: {sent_count[0]}/{total_frames}")
-
-                if os.path.exists(annotated_path):
-                    img = cv2.imread(annotated_path)
-                    if img is not None:
-                        with preview_placeholder.container():
-                            _, c2, _ = st.columns([1, 3, 1])
-                            with c2:
-                                st.image(img[:, :, ::-1], channels="BGR",
-                                         caption=f"Live Preview — {len(person_counts)} frames processed",
-                                         use_container_width=True)
-
-                if len(person_counts) > 3:
-                    df_live = pd.DataFrame(
-                        {"frame": range(len(person_counts)), "count": person_counts}
-                    )
-                    chart_placeholder.line_chart(df_live.set_index("frame"), y="count",
-                                                 height=300)
+                render_ui()
 
             sender_proc.wait()
             progress_bar.progress(1.0)
-            status_text.text("Sender finished. Draining Spark...")
-            logs.append("[sender] Finished. Draining Spark...")
-            sender_status.info("⚫ Sender — done")
+            status_text.text("Sender done. Draining Spark...")
+            append_log("[sender] Done. Draining...")
+            sender_status.info("⚫ Sender")
+            render_ui()
 
             time.sleep(15)
             processor_proc.terminate()
@@ -236,24 +244,30 @@ if pipe_file:
                 processor_proc.wait(timeout=5)
             except Exception:
                 processor_proc.kill()
-            processor_status.info("⚫ Processor — stopped")
+            processor_status.info("⚫ Processor")
 
-            storage_status.info("🟡 Storage — aggregating...")
+            storage_status.info("🟡 Storage aggregating...")
             for _ in range(40):
+                time.sleep(1)
+                render_ui()
                 if os.path.exists(summary_path):
-                    storage_status.success("🟢 Storage — done")
+                    storage_status.success("🟢 Storage")
                     break
-                time.sleep(2)
+            else:
+                storage_status.warning("⚠ Storage timeout")
 
         except Exception as e:
-            logs.append(f"[ERROR] {e}")
+            append_log(f"[ERROR] {e}")
             st.error(str(e))
+            render_ui()
         finally:
             for proc in processes:
                 try:
                     proc.terminate()
                 except Exception:
                     pass
+
+        render_ui()
 
         # Display results
         if os.path.exists(summary_path):
