@@ -250,6 +250,19 @@ with tab2:
                 processes.append(storage_proc)
                 time.sleep(2)
 
+                add_log(f"[*] Starting Sender (binds TCP :6400, waits for processor)...")
+                sender_proc = subprocess.Popen(
+                    [sys.executable, os.path.join(ROOT_DIR, "sender.py"), video_path],
+                    cwd=ROOT_DIR,
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+                )
+                processes.append(sender_proc)
+                t_sender = threading.Thread(target=reader_thread,
+                                            args=(sender_proc, "sender"),
+                                            daemon=True)
+                t_sender.start()
+                time.sleep(2)
+
                 add_log("[*] Starting Processor (PySpark DStream)...")
                 env = os.environ.copy()
                 env["PYSPARK_PYTHON"] = sys.executable
@@ -266,18 +279,9 @@ with tab2:
                 t_processor.start()
                 time.sleep(8)
 
-                add_log(f"[*] Starting Sender ({total_frames} frames)...")
-                sender_proc = subprocess.Popen(
-                    [sys.executable, os.path.join(ROOT_DIR, "sender.py"), video_path],
-                    cwd=ROOT_DIR,
-                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
-                )
-                processes.append(sender_proc)
-                t_sender = threading.Thread(target=reader_thread,
-                                            args=(sender_proc, "sender"),
-                                            daemon=True)
-                t_sender.start()
+                add_log("[*] Pipeline running...")
 
+                add_log("[*] Pipeline running...")
                 while sender_proc.poll() is None:
                     time.sleep(1)
                     if len(frame_counts) > 3:
