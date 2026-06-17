@@ -12,7 +12,7 @@ INPUT_SIZE = 640
 
 @st.cache_resource
 def load_model():
-    model = YOLO("yolo11n.pt")
+    model = YOLO("yolo11s.pt")
     model.fuse()
     return model
 
@@ -35,13 +35,39 @@ def draw_boxes(frame, results):
 
 st.set_page_config(page_title="People Counter", layout="wide")
 st.title("People Counting System")
-st.caption("YOLO11n + Streamlit")
+st.caption("YOLO11s + PySpark Streaming + Streamlit")
+
+with st.expander("System Architecture", expanded=False):
+    st.components.v1.html("""
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+    <div class="mermaid">
+    flowchart LR
+        A[📹 Video File] -->|frame| B(OpenCV<br/>sender.py)
+        B -->|TCP :6400<br/>JSON frame| C{{PySpark DStream<br/>processor.py}}
+        C -->|RDD micro-batch<br/>YOLO11s detect| D[👤 Person Detection]
+        D -->|TCP :6401<br/>bboxes JSON| E{{PySpark DataFrame<br/>storage.py}}
+        E -->|aggregate| F[📊 output/<br/>summary.json<br/>parquet]
+        C -.->|foreachPartition<br/>parallel workers| G[⚡ Spark Cluster]
+
+        style A fill:#e1f5fe
+        style B fill:#fff3e0
+        style C fill:#fce4ec
+        style D fill:#e8f5e9
+        style E fill:#fce4ec
+        style F fill:#e1f5fe
+        style G fill:#fff9c4
+    </div>
+    """, height=180)
 
 with st.sidebar:
     st.header("Settings")
     threshold = st.slider("Confidence Threshold", 0.1, 0.9, 0.4, 0.05)
     st.divider()
-    st.caption("Model: YOLO11n (ultralytics)")
+    st.markdown("**Tech Stack**")
+    st.caption("Model: YOLO11s (ultralytics)")
+    st.caption("Streaming: PySpark DStream")
+    st.caption("Storage: PySpark DataFrame")
     st.caption(f"Input: {INPUT_SIZE}x{INPUT_SIZE}")
     st.caption("Filter: person only (class 0)")
 
@@ -101,8 +127,11 @@ if uploaded_file:
             if frame_idx % 30 == 0:
                 df_chart = pd.DataFrame(list(count_history))
                 chart_placeholder.line_chart(df_chart.set_index("frame"), y="count")
-                video_placeholder.image(output_frame[:, :, ::-1], channels="BGR",
-                                        caption=f"Frame {frame_idx}", use_container_width=True)
+                with video_placeholder.container():
+                    col1, col2, col3 = st.columns([1, 2, 1])
+                    with col2:
+                        st.image(output_frame[:, :, ::-1], channels="BGR",
+                                 caption=f"Frame {frame_idx}", use_container_width=True)
 
         cap_in.release()
         out.release()
