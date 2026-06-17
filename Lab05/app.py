@@ -152,4 +152,4 @@ if uploaded_file:
                                file_name="output_with_bboxes.mp4",
                                mime="video/mp4")
 
-        os.unlink(tfile)
+        os.unlink(tfile.name)
