@@ -1,4 +1,5 @@
 import time
+import base64
 import cv2 as cv
 import socket
 import json
@@ -48,8 +49,10 @@ def main():
             frame = cv.resize(frame, (FRAME_WIDTH, FRAME_HEIGHT))
             frame = cv.flip(frame, 1)
 
+            _, jpg = cv.imencode(".jpg", frame, [cv.IMWRITE_JPEG_QUALITY, 85])
+            b64 = base64.b64encode(jpg).decode("utf-8")
             payload = {
-                "image": frame.reshape(-1).tolist(),
+                "image": b64,
                 "timestamp": time.time(),
             }
 

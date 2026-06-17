@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import base64
 import socket
 import time
 import pathlib
@@ -67,9 +68,8 @@ def process_batch(items):
         if "image" not in item or "timestamp" not in item:
             continue
 
-        image = np.array(item["image"], dtype=np.uint8).reshape(
-            FRAME_HEIGHT, FRAME_WIDTH, 3
-        )
+        jpeg_bytes = base64.b64decode(item["image"])
+        image = cv2.imdecode(np.frombuffer(jpeg_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
         timestamp = item["timestamp"]
 
         results = model(image, classes=[0], conf=CONFIDENCE_THRESHOLD,
