@@ -226,8 +226,8 @@ with tab2:
                     line = line.strip()
                     if not line:
                         continue
+                    add_log(line)
                     if "person" in line.lower():
-                        add_log(line)
                         m = re.search(r"persons=(\d+)", line)
                         if m:
                             frame_counts.append(int(m.group(1)))
@@ -236,9 +236,6 @@ with tab2:
                         if m:
                             progress_bar.progress(min(int(m.group(1)) / total_frames, 1.0))
                             status_text.text(f"Sending frame {m.group(1)}/{total_frames}")
-                    elif any(kw in line for kw in ["Video ended", "Shutdown", "Listening",
-                                                    "Spark Streaming", "Connected"]):
-                        add_log(line)
 
             try:
                 add_log("[*] Starting Storage Server...")
