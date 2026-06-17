@@ -48,7 +48,8 @@ st.title("People Counting System")
 st.caption("YOLO11s + PySpark Streaming")
 
 with st.expander("System Architecture", expanded=False):
-    st.html("""
+    st.components.v1.html("""
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
     <div class="mermaid">
     flowchart LR
         A[📹 Video File] -->|frame| B(OpenCV<br/>sender.py)
@@ -57,18 +58,9 @@ with st.expander("System Architecture", expanded=False):
         D -->|TCP :6401<br/>bboxes JSON| E{{PySpark DataFrame<br/>storage.py}}
         E -->|aggregate| F[📊 output/<br/>summary.json<br/>parquet]
         C -.->|foreachPartition<br/>parallel workers| G[⚡ Spark Cluster]
-
-        style A fill:#e1f5fe
-        style B fill:#fff3e0
-        style C fill:#fce4ec
-        style D fill:#e8f5e9
-        style E fill:#fce4ec
-        style F fill:#e1f5fe
-        style G fill:#fff9c4
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
-    <script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
-    """)
+    <script>mermaid.run()</script>
+    """, height=180)
 
 
 with st.sidebar:
