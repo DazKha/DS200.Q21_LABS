@@ -244,7 +244,19 @@ with tab2:
                 )
                 processes.append(sender_proc)
                 threading.Thread(target=reader_thread, args=(sender_proc,), daemon=True).start()
-                time.sleep(2)
+
+                for _ in range(10):
+                    time.sleep(1)
+                    if sender_proc.poll() is not None:
+                        logs.append("[ERROR] Sender exited early! Check that video exists and OpenCV is installed.")
+                        st.error("Sender crashed. Check logs for details.")
+                        st.stop()
+                    if any("Waiting" in l for l in logs):
+                        break
+                else:
+                    logs.append("[ERROR] Sender did not start listening.")
+                    st.error("Sender timeout. Check logs.")
+                    st.stop()
 
                 logs.append("[*] Starting Processor (PySpark DStream)...")
                 env = os.environ.copy()
