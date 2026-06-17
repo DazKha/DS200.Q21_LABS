@@ -1,6 +1,7 @@
 output/frames/
 output/batch/
 output/summary.json
+output/annotated/
 data/*.mp4
 data/*.avi
 data/*.mov
@@ -11,4 +12,6 @@ __pycache__/
 .DS_Store
 references/
 skills-lock.json
+docs/
+
 
