@@ -14,4 +14,7 @@ skills-lock.json
 .agents/
 docs/
 app.py
+*.mp4
+*.avi
+*.mov
 
