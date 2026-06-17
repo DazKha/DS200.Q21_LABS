@@ -48,9 +48,7 @@ st.title("People Counting System")
 st.caption("YOLO11s + PySpark Streaming")
 
 with st.expander("System Architecture", expanded=False):
-    st.components.v1.html("""
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
-    <script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+    st.html("""
     <div class="mermaid">
     flowchart LR
         A[📹 Video File] -->|frame| B(OpenCV<br/>sender.py)
@@ -68,7 +66,9 @@ with st.expander("System Architecture", expanded=False):
         style F fill:#e1f5fe
         style G fill:#fff9c4
     </div>
-    """, height=180)
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+    """)
 
 
 with st.sidebar:
@@ -211,22 +211,20 @@ with tab2:
             status_text = st.empty()
             chart_placeholder = st.empty()
             log_expander = st.expander("Pipeline Logs", expanded=False)
-            log_area = log_expander.empty()
 
             logs = []
             processes = []
             frame_counts = []
+            sent_count = [0]
 
-            def add_log(msg):
-                logs.append(msg)
-                log_area.code("\n".join(logs[-20:]), language="bash")
-
-            def reader_thread(proc, name):
+            def reader_thread(proc):
                 for line in proc.stdout:
                     line = line.strip()
                     if not line:
                         continue
-                    add_log(line)
+                    logs.append(line)
+                    if len(logs) > 200:
+                        logs.pop(0)
                     if "person" in line.lower():
                         m = re.search(r"persons=(\d+)", line)
                         if m:
@@ -234,11 +232,10 @@ with tab2:
                     elif "Sent frame" in line:
                         m = re.search(r"Sent frame (\d+)", line)
                         if m:
-                            progress_bar.progress(min(int(m.group(1)) / total_frames, 1.0))
-                            status_text.text(f"Sending frame {m.group(1)}/{total_frames}")
+                            sent_count[0] = int(m.group(1))
 
             try:
-                add_log("[*] Starting Storage Server...")
+                logs.append("[*] Starting Storage Server...")
                 storage_proc = subprocess.Popen(
                     [sys.executable, os.path.join(ROOT_DIR, "storage.py")],
                     cwd=ROOT_DIR,
@@ -247,20 +244,17 @@ with tab2:
                 processes.append(storage_proc)
                 time.sleep(2)
 
-                add_log(f"[*] Starting Sender (binds TCP :6400, waits for processor)...")
+                logs.append("[*] Starting Sender (binds TCP :6400)...")
                 sender_proc = subprocess.Popen(
                     [sys.executable, os.path.join(ROOT_DIR, "sender.py"), video_path],
                     cwd=ROOT_DIR,
                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
                 )
                 processes.append(sender_proc)
-                t_sender = threading.Thread(target=reader_thread,
-                                            args=(sender_proc, "sender"),
-                                            daemon=True)
-                t_sender.start()
+                threading.Thread(target=reader_thread, args=(sender_proc,), daemon=True).start()
                 time.sleep(2)
 
-                add_log("[*] Starting Processor (PySpark DStream)...")
+                logs.append("[*] Starting Processor (PySpark DStream)...")
                 env = os.environ.copy()
                 env["PYSPARK_PYTHON"] = sys.executable
                 env["PYSPARK_DRIVER_PYTHON"] = sys.executable
@@ -270,17 +264,17 @@ with tab2:
                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env
                 )
                 processes.append(processor_proc)
-                t_processor = threading.Thread(target=reader_thread,
-                                               args=(processor_proc, "processor"),
-                                               daemon=True)
-                t_processor.start()
+                threading.Thread(target=reader_thread, args=(processor_proc,), daemon=True).start()
                 time.sleep(8)
 
-                add_log("[*] Pipeline running...")
+                logs.append("[*] Pipeline running...")
 
-                add_log("[*] Pipeline running...")
                 while sender_proc.poll() is None:
                     time.sleep(1)
+                    log_expander.code("\n".join(logs[-20:]), language="bash")
+                    if sent_count[0] > 0:
+                        progress_bar.progress(min(sent_count[0] / total_frames, 1.0))
+                        status_text.text(f"Sending frame {sent_count[0]}/{total_frames}")
                     if len(frame_counts) > 3:
                         df_live = pd.DataFrame(
                             {"frame": range(len(frame_counts)), "count": frame_counts}
@@ -290,7 +284,7 @@ with tab2:
                 sender_proc.wait()
                 progress_bar.progress(1.0)
                 status_text.text("Sender finished. Waiting for Spark to drain...")
-                add_log("[sender] Finished. Waiting for Spark to drain...")
+                logs.append("[sender] Finished. Waiting for Spark to drain...")
 
                 time.sleep(10)
                 for proc in processes:
@@ -301,7 +295,7 @@ with tab2:
                         proc.kill()
 
             except Exception as e:
-                add_log(f"[ERROR] {e}")
+                logs.append(f"[ERROR] {e}")
                 for proc in processes:
                     try:
                         proc.kill()
