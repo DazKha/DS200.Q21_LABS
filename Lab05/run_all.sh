@@ -28,9 +28,12 @@ cleanup() {
 }
 trap cleanup SIGINT SIGTERM
 
-echo "[*] Killing stale processes on ports 6400 & 6401..."
+echo "[*] Killing stale processes..."
 lsof -ti:6400 | xargs kill -9 2>/dev/null || true
 lsof -ti:6401 | xargs kill -9 2>/dev/null || true
+pkill -f "processor.py" 2>/dev/null || true
+pkill -f "storage.py" 2>/dev/null || true
+pkill -f "sender.py" 2>/dev/null || true
 sleep 1
 
 echo "[*] Starting Storage Server..."

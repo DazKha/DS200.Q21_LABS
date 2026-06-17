@@ -34,6 +34,9 @@ def main():
         tcp_conn.close()
         sys.exit(1)
 
+    fps = cap.get(cv.CAP_PROP_FPS)
+    frame_delay = 1.0 / fps if fps > 0 else 0.033
+
     frame_count = 0
     try:
         while True:
